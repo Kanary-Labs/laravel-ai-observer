@@ -16,8 +16,12 @@ use Kanary\AiObservatory\Adapters\ToolEventAdapter;
 use Kanary\AiObservatory\Adapters\TranscriptionEventAdapter;
 use Kanary\AiObservatory\Context\TraceContext;
 use Kanary\AiObservatory\Contracts\Recorder;
+use Kanary\AiObservatory\Contracts\Redactor;
 use Kanary\AiObservatory\Listeners\CaptureAiSdkEvent;
-use Kanary\AiObservatory\Recording\DatabaseRecorder;
+use Kanary\AiObservatory\Recording\RecordingPipeline;
+use Kanary\AiObservatory\Redaction\DefaultRedactor;
+use Kanary\AiObservatory\Redaction\RedactionManager;
+use Kanary\AiObservatory\Support\PayloadLimiter;
 
 class AiObservatoryServiceProvider extends ServiceProvider
 {
@@ -44,7 +48,17 @@ class AiObservatoryServiceProvider extends ServiceProvider
         ));
 
         $this->app->singleton(TraceContext::class);
-        $this->app->singleton(Recorder::class, DatabaseRecorder::class);
+        $this->app->singleton(DefaultRedactor::class, fn () => new DefaultRedactor(
+            config('ai-observatory.redaction.keys', []),
+            config('ai-observatory.redaction.paths', []),
+            config('ai-observatory.redaction.replacement', '[REDACTED]'),
+        ));
+        $this->app->singleton(RedactionManager::class);
+        $this->app->alias(RedactionManager::class, Redactor::class);
+        $this->app->singleton(PayloadLimiter::class, fn () => new PayloadLimiter(
+            (int) config('ai-observatory.payloads.max_bytes', 100_000),
+        ));
+        $this->app->singleton(Recorder::class, RecordingPipeline::class);
     }
 
     public function boot(): void
