@@ -36,28 +36,26 @@ export function Filters({ className, filters, options, onChange, onReset }) {
 
     return (
         <section
-            className={clsx(
-                'grid gap-3 border-y border-zinc-950/10 py-4',
-                className,
-            )}
+            className={clsx('grid gap-3', className)}
             aria-label="Trace search and filters"
         >
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+            <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                     className="min-w-0 grow"
                     icon={MagnifyingGlassIcon}
                     type="search"
                     name="search"
-                    label="Search"
+                    label="Search traces"
+                    labelHidden
                     value={filters.search}
                     onChange={change}
-                    placeholder="Prompt, response, tool, error, or trace ID"
+                    placeholder="Search prompt, response, tool, error, or trace ID"
                 />
                 <div className="flex shrink-0 gap-2">
                     <button
                         type="button"
                         onClick={() => setOpen((value) => !value)}
-                        className="relative inline-flex grow items-center justify-center gap-2 rounded-lg py-2.5 pr-3 pl-2.5 text-sm/5 font-medium text-zinc-700 ring-1 ring-zinc-950/10 observatory-focus hover:bg-zinc-50 sm:py-1.5 lg:grow-0"
+                        className="relative inline-flex grow items-center justify-center gap-2 rounded-lg py-2.5 pr-3 pl-2.5 text-sm/5 font-medium text-zinc-700 ring-1 ring-zinc-950/10 observatory-focus hover:bg-zinc-50 sm:grow-0 sm:py-1.5"
                         aria-controls="trace-filters"
                         aria-expanded={open}
                     >
@@ -66,7 +64,7 @@ export function Filters({ className, filters, options, onChange, onReset }) {
                             aria-hidden="true"
                         />
                         <AdjustmentsHorizontalIcon className="size-4 h-lh shrink-0 fill-zinc-500" />
-                        {open ? 'Hide filters' : 'Filters'}
+                        Filters
                         {activeFilters.length > 0 ? (
                             <span className="rounded-full bg-amber-100 px-1.5 text-amber-900 tabular-nums">
                                 {activeFilters.length}

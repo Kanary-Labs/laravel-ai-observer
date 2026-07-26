@@ -5,6 +5,7 @@ export function Input({
     className,
     icon: Icon,
     label,
+    labelHidden = false,
     name,
     type = 'text',
     ...properties
@@ -23,8 +24,16 @@ export function Input({
     )
 
     return (
-        <label htmlFor={name} className={clsx('grid gap-1.5', className)}>
-            <div className="text-base/6 font-medium text-zinc-700 sm:text-sm/5">
+        <label
+            htmlFor={name}
+            className={clsx('grid', !labelHidden && 'gap-1.5', className)}
+        >
+            <div
+                className={clsx(
+                    'text-base/6 font-medium text-zinc-700 sm:text-sm/5',
+                    labelHidden && 'sr-only',
+                )}
+            >
                 {label}
             </div>
             {Icon ? (

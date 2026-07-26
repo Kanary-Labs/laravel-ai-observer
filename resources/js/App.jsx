@@ -1,6 +1,7 @@
 import {
     Bars3Icon,
     CircleStackIcon,
+    QueueListIcon,
     XMarkIcon,
 } from '@heroicons/react/16/solid'
 import clsx from 'clsx'
@@ -28,7 +29,57 @@ const emptyFilters = {
     per_page: 25,
 }
 
-function Header({ basePath, onNavigate }) {
+function Brand() {
+    return (
+        <a
+            href="/"
+            aria-label="Homepage"
+            className="flex min-w-0 items-center gap-2 rounded observatory-focus"
+        >
+            <CircleStackIcon className="size-4 shrink-0 fill-amber-500" />
+            <div className="truncate text-base font-semibold tracking-tight text-zinc-950">
+                AI Observatory
+            </div>
+        </a>
+    )
+}
+
+function Sidebar({ basePath, config, onNavigate }) {
+    function traces(event) {
+        event.preventDefault()
+        onNavigate(null)
+    }
+
+    return (
+        <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-zinc-950/10 bg-white lg:flex">
+            <div className="flex h-14 shrink-0 items-center border-b border-zinc-950/10 px-4">
+                <Brand />
+            </div>
+            <nav className="grow p-3" aria-label="Main navigation">
+                <a
+                    href={`${basePath}/traces`}
+                    onClick={traces}
+                    aria-current="page"
+                    className="flex items-center gap-2 rounded-lg bg-zinc-100 py-2 pr-3 pl-2 text-sm/5 font-medium text-zinc-950 observatory-focus"
+                >
+                    <QueueListIcon className="size-4 h-lh shrink-0 fill-zinc-500" />
+                    Traces
+                </a>
+            </nav>
+            <div className="grid gap-1 border-t border-zinc-950/10 p-4">
+                <div className="flex items-center gap-2 text-sm/5 font-medium text-zinc-900">
+                    <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                    Recording enabled
+                </div>
+                <div className="text-sm/5 text-zinc-500">
+                    {config.environment} · {config.recordingMode}
+                </div>
+            </div>
+        </aside>
+    )
+}
+
+function MobileHeader({ basePath, onNavigate }) {
     const [open, setOpen] = useState(false)
 
     function traces(event) {
@@ -38,37 +89,13 @@ function Header({ basePath, onNavigate }) {
     }
 
     return (
-        <header className="sticky top-0 z-40 border-b border-zinc-950/10 bg-white/95 backdrop-blur">
-            <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
-                <a
-                    href="/"
-                    aria-label="Homepage"
-                    className="flex min-w-0 items-center gap-2 rounded observatory-focus"
-                >
-                    <CircleStackIcon className="size-4 shrink-0 fill-amber-500" />
-                    <div className="truncate text-base font-semibold tracking-tight text-zinc-950">
-                        AI Observatory
-                    </div>
-                </a>
-                <nav
-                    className="flex items-center gap-1 max-lg:hidden"
-                    aria-label="Main navigation"
-                >
-                    <a
-                        href={`${basePath}/traces`}
-                        onClick={traces}
-                        aria-current="page"
-                        className="rounded-md bg-zinc-100 px-3 py-1.5 observatory-focus"
-                    >
-                        <div className="text-sm/5 font-medium text-zinc-950">
-                            Traces
-                        </div>
-                    </a>
-                </nav>
+        <header className="sticky top-0 z-40 border-b border-zinc-950/10 bg-white/95 backdrop-blur lg:hidden">
+            <div className="flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
+                <Brand />
                 <button
                     type="button"
                     onClick={() => setOpen((value) => !value)}
-                    className="relative rounded-md p-1.5 observatory-focus hover:bg-zinc-100 lg:hidden"
+                    className="relative rounded-md p-1.5 observatory-focus hover:bg-zinc-100"
                     aria-label="Toggle navigation"
                     aria-expanded={open}
                 >
@@ -85,18 +112,17 @@ function Header({ basePath, onNavigate }) {
             </div>
             {open ? (
                 <nav
-                    className="border-t border-zinc-950/10 px-4 py-3 lg:hidden"
+                    className="border-t border-zinc-950/10 p-3"
                     aria-label="Mobile navigation"
                 >
                     <a
                         href={`${basePath}/traces`}
                         onClick={traces}
                         aria-current="page"
-                        className="rounded-md bg-zinc-100 px-3 py-2 observatory-focus"
+                        className="flex items-center gap-2 rounded-lg bg-zinc-100 py-2.5 pr-3 pl-2.5 text-base/6 font-medium text-zinc-950 observatory-focus sm:text-sm/5"
                     >
-                        <div className="text-sm/5 font-medium text-zinc-950">
-                            Traces
-                        </div>
+                        <QueueListIcon className="size-5 h-lh shrink-0 fill-zinc-500 sm:size-4" />
+                        Traces
                     </a>
                 </nav>
             ) : null}
@@ -106,7 +132,7 @@ function Header({ basePath, onNavigate }) {
 
 function ErrorNotice({ message, onRetry }) {
     return (
-        <div className="mx-auto max-w-screen-2xl px-4 pt-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 lg:px-8">
             <div className="flex flex-col justify-between gap-3 rounded-lg bg-red-50 p-4 sm:flex-row sm:items-center">
                 <p className="text-base/7 text-pretty text-red-700 sm:text-sm/6">
                     {message}
@@ -217,39 +243,49 @@ export default function App({ className }) {
     return (
         <div
             className={clsx(
-                'isolate min-h-dvh bg-white font-sans text-zinc-950',
+                'isolate min-h-dvh bg-zinc-50 font-sans text-zinc-950',
                 className,
             )}
         >
-            <Header basePath={config.basePath} onNavigate={navigate} />
-            {error ? (
-                <ErrorNotice
-                    message={error}
-                    onRetry={() => setRefresh((value) => value + 1)}
+            <Sidebar
+                basePath={config.basePath}
+                config={config}
+                onNavigate={navigate}
+            />
+            <div className="min-w-0 lg:pl-56">
+                <MobileHeader
+                    basePath={config.basePath}
+                    onNavigate={navigate}
                 />
-            ) : null}
-            {!hideContentForInitialError &&
-                (traceId ? (
-                    <TraceDetail
-                        loading={loading}
-                        trace={trace}
-                        onBack={() => navigate(null)}
+                {error ? (
+                    <ErrorNotice
+                        message={error}
+                        onRetry={() => setRefresh((value) => value + 1)}
                     />
-                ) : (
-                    <TraceList
-                        filters={filters}
-                        loading={loading}
-                        meta={meta}
-                        traces={traces}
-                        onFilter={filter}
-                        onNavigate={navigate}
-                        onPage={(page) =>
-                            setFilters((current) => ({ ...current, page }))
-                        }
-                        onRefresh={() => setRefresh((value) => value + 1)}
-                        onReset={() => setFilters(emptyFilters)}
-                    />
-                ))}
+                ) : null}
+                {!hideContentForInitialError &&
+                    (traceId ? (
+                        <TraceDetail
+                            loading={loading}
+                            trace={trace}
+                            onBack={() => navigate(null)}
+                        />
+                    ) : (
+                        <TraceList
+                            filters={filters}
+                            loading={loading}
+                            meta={meta}
+                            traces={traces}
+                            onFilter={filter}
+                            onNavigate={navigate}
+                            onPage={(page) =>
+                                setFilters((current) => ({ ...current, page }))
+                            }
+                            onRefresh={() => setRefresh((value) => value + 1)}
+                            onReset={() => setFilters(emptyFilters)}
+                        />
+                    ))}
+            </div>
         </div>
     )
 }

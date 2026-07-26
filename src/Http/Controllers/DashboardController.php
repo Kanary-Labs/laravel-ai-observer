@@ -21,6 +21,8 @@ final class DashboardController
             'observatory' => [
                 'apiBase' => route('ai-observatory.api.traces.index'),
                 'basePath' => '/'.trim((string) config('ai-observatory.path'), '/'),
+                'environment' => app()->environment(),
+                'recordingMode' => config('ai-observatory.recording_mode', 'sync'),
                 'initialTraceId' => $traceId,
             ],
         ]);

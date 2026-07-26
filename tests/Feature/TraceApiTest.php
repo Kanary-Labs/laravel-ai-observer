@@ -35,6 +35,8 @@ it('serves the package-contained dashboard and compiled assets', function () {
     $this->get("/ai-observatory/traces/{$traceId}")
         ->assertOk()
         ->assertSee('"initialTraceId":"'.$traceId.'"', false)
+        ->assertSee('"environment":"testing"', false)
+        ->assertSee('"recordingMode":"sync"', false)
         ->assertSee('/ai-observatory/assets/ai-observatory.css', false)
         ->assertSee('/ai-observatory/assets/ai-observatory.js', false);
     $this->get('/ai-observatory/assets/ai-observatory.css')

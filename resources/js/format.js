@@ -33,7 +33,7 @@ export function formatRelativeDate(value) {
 
 export function formatDuration(value) {
     if (value === null || value === undefined) return '—'
-    if (value < 1_000) return `${value} ms`
+    if (value < 1_000) return `${Math.round(value)} ms`
     if (value < 60_000)
         return `${(value / 1_000).toFixed(value < 10_000 ? 2 : 1)} s`
 

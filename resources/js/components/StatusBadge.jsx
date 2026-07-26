@@ -18,13 +18,22 @@ export function StatusBadge({ className, compact = false, status }) {
     if (compact) {
         return (
             <div
-                className={clsx('flex h-6 shrink-0 items-center', className)}
-                title={status ?? 'unknown'}
-                aria-label={`Status: ${status ?? 'unknown'}`}
+                className={clsx(
+                    'inline-flex shrink-0 items-center gap-1.5 text-base/6 font-medium sm:text-sm/5',
+                    status === 'successful'
+                        ? 'text-emerald-700'
+                        : status === 'failed'
+                          ? 'text-red-700'
+                          : status === 'running'
+                            ? 'text-amber-800'
+                            : 'text-zinc-600',
+                    className,
+                )}
             >
                 <span
-                    className={`size-2 shrink-0 rounded-full ${dots[status] ?? dots.cancelled}`}
+                    className={`size-1.5 shrink-0 rounded-full ${dots[status] ?? dots.cancelled}`}
                 />
+                {status ?? 'unknown'}
             </div>
         )
     }

@@ -363,7 +363,7 @@ export function TraceDetail({ className, loading, onBack, trace }) {
         return (
             <main
                 className={clsx(
-                    'isolate mx-auto grid max-w-screen-2xl gap-6 px-4 py-7 sm:px-6 lg:px-8 lg:py-10',
+                    'isolate mx-auto grid min-h-dvh max-w-7xl gap-5 bg-white px-4 py-5 sm:px-6 sm:py-6 lg:px-8',
                     className,
                 )}
             >
@@ -375,8 +375,8 @@ export function TraceDetail({ className, loading, onBack, trace }) {
     }
 
     return (
-        <main className={clsx('isolate min-w-0', className)}>
-            <div className="mx-auto grid max-w-screen-2xl gap-7 px-4 py-7 sm:px-6 lg:px-8 lg:py-10">
+        <main className={clsx('isolate min-h-dvh min-w-0 bg-white', className)}>
+            <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
                 <button
                     type="button"
                     onClick={onBack}
@@ -390,7 +390,7 @@ export function TraceDetail({ className, loading, onBack, trace }) {
                     All traces
                 </button>
 
-                <header className="grid gap-4 border-b border-zinc-950/10 pb-6">
+                <header className="grid gap-3 border-b border-zinc-950/10 pb-5">
                     <div className="flex flex-wrap items-center gap-2">
                         <StatusBadge status={trace.status} />
                         {trace.feature ? (
@@ -413,7 +413,7 @@ export function TraceDetail({ className, loading, onBack, trace }) {
                 </header>
 
                 <div className="@container">
-                    <dl className="grid gap-4 border-b border-zinc-950/10 pb-6 @md:grid-cols-3 @md:gap-6 @4xl:grid-cols-6">
+                    <dl className="grid gap-4 border-b border-zinc-950/10 pb-5 @md:grid-cols-3 @md:gap-5 @4xl:grid-cols-6">
                         <Metric label="Status" value={trace.status} />
                         <Metric
                             label="Duration"
@@ -441,7 +441,7 @@ export function TraceDetail({ className, loading, onBack, trace }) {
                     </dl>
                 </div>
 
-                <div className="grid gap-7 lg:grid-cols-[minmax(0,5fr)_minmax(17rem,2fr)]">
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(16rem,2fr)]">
                     <section
                         className="min-w-0"
                         aria-labelledby="timeline-heading"
@@ -482,7 +482,7 @@ export function TraceDetail({ className, loading, onBack, trace }) {
                     </section>
 
                     <aside
-                        className="min-w-0 lg:border-l lg:border-zinc-950/10 lg:pl-7"
+                        className="min-w-0 lg:border-l lg:border-zinc-950/10 lg:pl-6"
                         aria-label="Trace context"
                     >
                         <h2 className="text-base font-medium text-zinc-950">
