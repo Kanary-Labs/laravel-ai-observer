@@ -33,27 +33,54 @@ const typeIcons = {
 
 function Metric({ label, value }) {
     return (
-        <div className="grid gap-1 border-t border-zinc-950/10 pt-4 first:border-t-0 first:pt-0 @sm:border-t-0 @sm:pt-0">
-            <dt className="truncate text-base/7 font-medium text-zinc-900 sm:text-sm/6">
+        <div className="grid gap-1 border-t border-zinc-950/10 pt-4 first:border-t-0 first:pt-0 @md:border-t-0 @md:pt-0">
+            <dt className="truncate text-sm/5 font-medium text-zinc-500">
                 {label}
             </dt>
-            <dd className="text-base/7 text-zinc-500 tabular-nums sm:text-sm/6">
+            <dd className="text-base font-medium text-zinc-950 tabular-nums">
                 {value}
             </dd>
         </div>
     )
 }
 
-function SpanRow({ span, onSelect }) {
+function spanPosition(span, trace) {
+    const traceStart = new Date(trace.started_at).getTime()
+    const spanStart = new Date(span.started_at).getTime()
+    const traceDuration = Math.max(Number(trace.duration_ms) || 1, 1)
+    const spanDuration = Math.max(Number(span.duration_ms) || 0, 1)
+
+    if (!Number.isFinite(traceStart) || !Number.isFinite(spanStart)) {
+        return { left: 0, width: 3 }
+    }
+
+    const left = Math.max(
+        0,
+        Math.min(97, ((spanStart - traceStart) / traceDuration) * 100),
+    )
+    const width = Math.max(
+        3,
+        Math.min(100 - left, (spanDuration / traceDuration) * 100),
+    )
+
+    return { left, width }
+}
+
+function SpanRow({ span, onSelect, trace }) {
     const Icon = typeIcons[span.type] ?? CircleStackIcon
     const failed = span.status === 'failed'
+    const timing = spanPosition(span, trace)
 
     return (
         <button
             type="button"
             onClick={() => onSelect(span)}
-            style={{ '--span-offset': `${span.depth * 1.25}rem` }}
-            className="group relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 border-b border-zinc-950/5 py-4 pr-4 pl-[calc(--spacing(4)+var(--span-offset))] text-left observatory-focus hover:bg-zinc-50"
+            style={{
+                '--span-offset': `${span.depth * 1.25}rem`,
+                '--span-left': `${timing.left}%`,
+                '--span-width': `${timing.width}%`,
+            }}
+            className="group relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 border-b border-zinc-950/5 py-4 pr-2 pl-[var(--span-offset)] text-left observatory-focus hover:bg-zinc-50 @3xl:grid-cols-[auto_minmax(12rem,3fr)_minmax(10rem,2fr)_auto] @3xl:items-center"
         >
             <span
                 className="absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden"
@@ -87,12 +114,39 @@ function SpanRow({ span, onSelect }) {
                     </div>
                 ) : null}
             </div>
+            <div className="relative hidden h-7 overflow-hidden rounded-md bg-zinc-100 @3xl:block">
+                <span
+                    className={clsx(
+                        'absolute top-2 h-3 min-w-1 rounded-sm',
+                        failed
+                            ? 'bg-red-500'
+                            : span.type === 'model'
+                              ? 'bg-amber-500'
+                              : span.type === 'tool' || span.type === 'mcp'
+                                ? 'bg-sky-500'
+                                : 'bg-zinc-400',
+                        'left-(--span-left) w-(--span-width)',
+                    )}
+                />
+            </div>
             <ChevronRightIcon className="size-4 h-lh shrink-0 fill-zinc-300 group-hover:fill-zinc-500" />
         </button>
     )
 }
 
 function SpanDrawer({ span, onClose }) {
+    const [activeTab, setActiveTab] = useState('request')
+
+    useEffect(() => {
+        const firstAvailable = [
+            ['request', span?.request],
+            ['response', span?.response],
+            ['metadata', span?.metadata],
+        ].find(([, value]) => value !== null && value !== undefined)
+
+        setActiveTab(firstAvailable?.[0] ?? 'request')
+    }, [span])
+
     useEffect(() => {
         function close(event) {
             if (event.key === 'Escape') onClose()
@@ -228,21 +282,70 @@ function SpanDrawer({ span, onClose }) {
                                 </div>
                             </section>
                         ) : null}
-                        {span.request !== null ? (
-                            <JsonViewer label="Request" value={span.request} />
-                        ) : null}
-                        {span.response !== null ? (
-                            <JsonViewer
-                                label="Response"
-                                value={span.response}
-                            />
-                        ) : null}
-                        {span.metadata !== null ? (
-                            <JsonViewer
-                                label="Metadata"
-                                value={span.metadata}
-                            />
-                        ) : null}
+                        <section aria-label="Span payloads">
+                            <div className="overflow-x-auto border-b border-zinc-950/10">
+                                <div className="flex min-w-max gap-5">
+                                    {[
+                                        ['request', 'Request', span.request],
+                                        ['response', 'Response', span.response],
+                                        ['metadata', 'Metadata', span.metadata],
+                                    ].map(([key, label, value]) =>
+                                        value !== null &&
+                                        value !== undefined ? (
+                                            <button
+                                                key={key}
+                                                type="button"
+                                                onClick={() =>
+                                                    setActiveTab(key)
+                                                }
+                                                aria-selected={
+                                                    activeTab === key
+                                                }
+                                                className={clsx(
+                                                    'relative border-b-2 py-2 text-sm/5 font-medium observatory-focus',
+                                                    activeTab === key
+                                                        ? 'border-amber-500 text-zinc-950'
+                                                        : 'border-transparent text-zinc-500 hover:text-zinc-900',
+                                                )}
+                                            >
+                                                <span
+                                                    className="absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden"
+                                                    aria-hidden="true"
+                                                />
+                                                {label}
+                                            </button>
+                                        ) : null,
+                                    )}
+                                </div>
+                            </div>
+                            {activeTab === 'request' &&
+                            span.request !== null ? (
+                                <JsonViewer
+                                    className="pt-4"
+                                    label="Request payload"
+                                    plain
+                                    value={span.request}
+                                />
+                            ) : null}
+                            {activeTab === 'response' &&
+                            span.response !== null ? (
+                                <JsonViewer
+                                    className="pt-4"
+                                    label="Response payload"
+                                    plain
+                                    value={span.response}
+                                />
+                            ) : null}
+                            {activeTab === 'metadata' &&
+                            span.metadata !== null ? (
+                                <JsonViewer
+                                    className="pt-4"
+                                    label="Span metadata"
+                                    plain
+                                    value={span.metadata}
+                                />
+                            ) : null}
+                        </section>
                     </div>
                 </div>
             </div>
@@ -287,7 +390,7 @@ export function TraceDetail({ className, loading, onBack, trace }) {
                     All traces
                 </button>
 
-                <header className="grid gap-4">
+                <header className="grid gap-4 border-b border-zinc-950/10 pb-6">
                     <div className="flex flex-wrap items-center gap-2">
                         <StatusBadge status={trace.status} />
                         {trace.feature ? (
@@ -305,15 +408,13 @@ export function TraceDetail({ className, loading, onBack, trace }) {
                             <div className="font-mono">
                                 {trace.provider ?? '—'} / {trace.model ?? '—'}
                             </div>
-                            <div className="font-mono break-all">
-                                {trace.trace_id}
-                            </div>
                         </div>
                     </div>
                 </header>
 
                 <div className="@container">
-                    <dl className="grid gap-4 @sm:grid-cols-2 @sm:gap-6 @3xl:grid-cols-5">
+                    <dl className="grid gap-4 border-b border-zinc-950/10 pb-6 @md:grid-cols-3 @md:gap-6 @4xl:grid-cols-6">
+                        <Metric label="Status" value={trace.status} />
                         <Metric
                             label="Duration"
                             value={formatDuration(trace.duration_ms)}
@@ -330,12 +431,12 @@ export function TraceDetail({ className, loading, onBack, trace }) {
                             )}
                         />
                         <Metric
-                            label="Started"
-                            value={formatDate(trace.started_at)}
+                            label="Spans / tools"
+                            value={`${trace.span_count} / ${trace.tool_count}`}
                         />
                         <Metric
-                            label="User / tenant"
-                            value={`${trace.user?.id ?? '—'} / ${trace.tenant?.id ?? '—'}`}
+                            label="Started"
+                            value={formatDate(trace.started_at)}
                         />
                     </dl>
                 </div>
@@ -362,11 +463,18 @@ export function TraceDetail({ className, loading, onBack, trace }) {
                                 {trace.span_count} spans
                             </div>
                         </div>
-                        <div className="border-x border-zinc-950/10">
+                        <div className="@container">
+                            <div className="hidden grid-cols-[auto_minmax(12rem,3fr)_minmax(10rem,2fr)_auto] gap-3 border-b border-zinc-950/10 py-2 pr-2 text-sm/5 font-medium text-zinc-500 @3xl:grid">
+                                <div className="size-4" />
+                                <div>Operation</div>
+                                <div>Waterfall</div>
+                                <div className="w-4" />
+                            </div>
                             {spans.map((span) => (
                                 <SpanRow
                                     key={span.span_id}
                                     span={span}
+                                    trace={trace}
                                     onSelect={setSelectedSpan}
                                 />
                             ))}
@@ -378,7 +486,7 @@ export function TraceDetail({ className, loading, onBack, trace }) {
                         aria-label="Trace context"
                     >
                         <h2 className="text-base font-medium text-zinc-950">
-                            Trace context
+                            Run context
                         </h2>
                         <dl className="grid gap-4 pt-4">
                             <div>
@@ -399,11 +507,28 @@ export function TraceDetail({ className, loading, onBack, trace }) {
                             </div>
                             <div>
                                 <dt className="text-base/7 font-medium text-zinc-900 sm:text-sm/6">
+                                    Trace ID
+                                </dt>
+                                <dd className="font-mono text-base/7 break-all text-zinc-500 sm:text-sm/6">
+                                    {trace.trace_id}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-base/7 font-medium text-zinc-900 sm:text-sm/6">
                                     Input / output
                                 </dt>
                                 <dd className="text-base/7 text-zinc-500 tabular-nums sm:text-sm/6">
                                     {formatTokens(trace.input_tokens)} /{' '}
                                     {formatTokens(trace.output_tokens)}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-base/7 font-medium text-zinc-900 sm:text-sm/6">
+                                    User / tenant
+                                </dt>
+                                <dd className="text-base/7 text-zinc-500 sm:text-sm/6">
+                                    {trace.user?.id ?? '—'} /{' '}
+                                    {trace.tenant?.id ?? '—'}
                                 </dd>
                             </div>
                         </dl>

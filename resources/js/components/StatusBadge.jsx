@@ -14,7 +14,21 @@ const dots = {
     running: 'bg-amber-500',
 }
 
-export function StatusBadge({ className, status }) {
+export function StatusBadge({ className, compact = false, status }) {
+    if (compact) {
+        return (
+            <div
+                className={clsx('flex h-6 shrink-0 items-center', className)}
+                title={status ?? 'unknown'}
+                aria-label={`Status: ${status ?? 'unknown'}`}
+            >
+                <span
+                    className={`size-2 shrink-0 rounded-full ${dots[status] ?? dots.cancelled}`}
+                />
+            </div>
+        )
+    }
+
     return (
         <div
             className={clsx(

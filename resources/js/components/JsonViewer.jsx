@@ -83,7 +83,7 @@ function Node({ label, value, depth = 0 }) {
     )
 }
 
-export function JsonViewer({ className, value, label }) {
+export function JsonViewer({ className, value, label, plain = false }) {
     const [copied, setCopied] = useState(false)
     const truncated =
         value && typeof value === 'object' && value._truncated === true
@@ -103,7 +103,10 @@ export function JsonViewer({ className, value, label }) {
 
     return (
         <section
-            className={clsx('border-t border-zinc-950/10 pt-5', className)}
+            className={clsx(
+                !plain && 'border-t border-zinc-950/10 pt-5',
+                className,
+            )}
         >
             <div className="flex items-center justify-between gap-4">
                 <h3 className="text-base font-medium text-zinc-950">{label}</h3>

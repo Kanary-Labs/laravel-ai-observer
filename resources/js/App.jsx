@@ -38,15 +38,15 @@ function Header({ basePath, onNavigate }) {
     }
 
     return (
-        <header className="border-b border-zinc-950/10 bg-white">
-            <div className="mx-auto flex h-16 max-w-screen-2xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-40 border-b border-zinc-950/10 bg-white/95 backdrop-blur">
+            <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
                 <a
                     href="/"
                     aria-label="Homepage"
                     className="flex min-w-0 items-center gap-2 rounded observatory-focus"
                 >
                     <CircleStackIcon className="size-4 shrink-0 fill-amber-500" />
-                    <div className="truncate text-base font-semibold text-zinc-950">
+                    <div className="truncate text-base font-semibold tracking-tight text-zinc-950">
                         AI Observatory
                     </div>
                 </a>
