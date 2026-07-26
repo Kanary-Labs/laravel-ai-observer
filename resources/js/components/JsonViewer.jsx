@@ -28,7 +28,7 @@ function Primitive({ value }) {
 
     return (
         <div
-            className={`font-mono text-base/7 break-words sm:text-sm/6 ${style}`}
+            className={`min-w-0 font-mono text-base/7 break-words whitespace-pre-wrap sm:text-sm/6 ${style}`}
         >
             {display}
         </div>
@@ -40,10 +40,10 @@ function Node({ label, value, depth = 0 }) {
 
     if (!structured) {
         return (
-            <div className="grid grid-cols-[minmax(5rem,auto)_1fr] gap-3 py-1">
+            <div className="grid min-w-0 gap-x-4 gap-y-0.5 py-1 @md:grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)]">
                 {label !== null ? (
-                    <div className="font-mono text-base/7 text-zinc-500 sm:text-sm/6">
-                        {label}
+                    <div className="min-w-0 font-mono text-base/7 break-words text-zinc-500 sm:text-sm/6">
+                        {label}:
                     </div>
                 ) : null}
                 <Primitive value={value} />
@@ -55,21 +55,21 @@ function Node({ label, value, depth = 0 }) {
     const kind = Array.isArray(value) ? 'array' : 'object'
 
     return (
-        <details className="group/json" open={depth < 1}>
-            <summary className="flex cursor-pointer list-none items-center gap-1 rounded py-1 observatory-focus">
+        <details className="group/json @container min-w-0" open={depth < 1}>
+            <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1 rounded py-1 observatory-focus">
                 <ChevronRightIcon className="size-4 h-lh shrink-0 fill-zinc-400 group-open/json:rotate-90" />
                 {label !== null ? (
-                    <div className="font-mono text-base/7 font-medium text-zinc-700 sm:text-sm/6">
-                        {label}
+                    <div className="min-w-0 font-mono text-base/7 font-medium break-words text-zinc-700 sm:text-sm/6">
+                        {label}:
                     </div>
                 ) : null}
-                <div className="font-mono text-base/7 text-zinc-400 sm:text-sm/6">
+                <div className="shrink-0 font-mono text-base/7 text-zinc-400 sm:text-sm/6">
                     {kind === 'array'
                         ? `[${entries.length}]`
                         : `{${entries.length}}`}
                 </div>
             </summary>
-            <div className="border-l border-zinc-950/10 pl-4">
+            <div className="@container min-w-0 border-l border-zinc-950/10 pl-4">
                 {entries.map(([key, child]) => (
                     <Node
                         key={key}
@@ -113,7 +113,7 @@ export function JsonViewer({ className, value, label, plain = false }) {
                 <button
                     type="button"
                     onClick={copy}
-                    className="relative inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm/5 font-medium text-zinc-600 observatory-focus hover:bg-zinc-100"
+                    className="relative inline-flex items-center gap-1.5 rounded-md py-1.5 pr-2.5 pl-1.5 text-sm/5 font-medium text-zinc-600 observatory-focus hover:bg-zinc-100"
                 >
                     <span
                         className="absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden"
@@ -134,7 +134,7 @@ export function JsonViewer({ className, value, label, plain = false }) {
                     {Number(value._original_bytes).toLocaleString()} bytes.
                 </div>
             ) : null}
-            <div className="mt-3 max-h-96 overflow-auto rounded-lg bg-zinc-50 p-4 ring-1 ring-zinc-950/5 ring-inset">
+            <div className="@container mt-3 max-h-96 overflow-x-hidden overflow-y-auto rounded-lg bg-zinc-50 p-4 ring-1 ring-zinc-950/5 ring-inset">
                 <Node label={null} value={value} />
             </div>
         </section>
