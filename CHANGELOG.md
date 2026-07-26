@@ -4,13 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
-### Changed
-
-- Redesigned the trace dashboard around faster triage, progressive filtering,
-  responsive trace rows, a time-scaled span waterfall, and tabbed payload
-  inspection.
-
-## [0.1.0] - upcoming
+## [0.1.0] - 2026-07-26
 
 ### Added
 
@@ -27,6 +21,12 @@ All notable changes to this project are documented here.
 - Install, status, prune, clear, and stale-recovery commands.
 - Laravel 12 and 13 test matrix for SQLite, MySQL, and PostgreSQL.
 - No-key Orchestra Testbench demo application.
+
+### Changed
+
+- Redesigned the trace dashboard around faster triage, progressive filtering,
+  responsive trace rows, a time-scaled span waterfall, and tabbed payload
+  inspection.
 
 ### Known limitations
 
