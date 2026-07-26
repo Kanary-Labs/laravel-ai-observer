@@ -36,7 +36,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Kanary\\AiObservatory\\Tests\\": "tests/"
+            "Kanary\\AiObservatory\\Tests\\": "tests/",
+            "Workbench\\App\\": "workbench/app/"
         }
     },
     "scripts": {

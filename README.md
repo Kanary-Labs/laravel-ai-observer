@@ -6,7 +6,8 @@ package for applications using the official Laravel AI SDK.
 > AI prompts and responses can contain sensitive information. Review capture
 > and redaction settings before enabling this package in production.
 
-The package is under active development and is not ready for production use.
+The package is under active development. Version `0.1.0` is the first supported
+preview and should be evaluated carefully before production use.
 
 ## Requirements
 
@@ -25,6 +26,10 @@ php artisan migrate
 
 The install command publishes one idempotent, ordered migration set. Re-running
 the command does not create duplicate migrations.
+
+The package uses its own tables and does not depend on Laravel Telescope
+internals. Foreign keys use restrictive deletion rules; maintenance commands
+delete children explicitly in bounded transactions.
 
 ## Trace dashboard
 
@@ -146,6 +151,7 @@ Add business context around dispatch or execution:
 AiObservatory::withContext([
     'feature' => 'ticket-reply',
     'organization_id' => $organization->getKey(),
+    'user_id' => auth()->id(),
 ], fn () => SupportAgent::make()->prompt($message));
 ```
 
@@ -168,6 +174,63 @@ php artisan ai-observatory:recover-stale --minutes=30
 
 Recovered traces and spans are marked `cancelled` and retain recovery metadata.
 
+## Privacy and redaction
+
+Sensitive keys are masked recursively, explicit dot paths support wildcards,
+and oversized payloads are replaced with truncation metadata. Embedding vectors
+are not captured by default.
+
+```php
+use Kanary\AiObservatory\AiObservatory;
+
+AiObservatory::redactUsing(function (mixed $payload): mixed {
+    // Apply application-specific masking after the built-in redactor.
+    return $payload;
+});
+```
+
+Review `capture`, `redaction`, and `payloads` in the published
+`config/ai-observatory.php` before enabling recording outside local
+environments.
+
+## Configuration
+
+The published configuration controls enablement, dashboard path, database
+connection, recording mode, queue, capture switches, payload limits, redaction,
+sampling, retention, recovery, middleware, and the local pricing catalog.
+Environment variables cover the common deployment settings; use the config
+file for structured redaction paths and model prices.
+
+## Custom SDK adapters
+
+SDK event objects are never persisted directly. A custom adapter can translate
+an application or future SDK event into the package's stable internal DTOs:
+
+```php
+use Kanary\AiObservatory\AiObservatory;
+
+AiObservatory::registerEventAdapter(App\Observability\CustomAiEventAdapter::class);
+```
+
+Adapters implement `Kanary\AiObservatory\Adapters\AiSdkEventAdapter`. Unknown
+events are ignored; enable `AI_OBSERVATORY_DEBUG=true` to log compatibility and
+recorder diagnostics.
+
+## Demo workbench
+
+The included Orchestra Testbench application generates realistic traces with
+Laravel AI SDK fakes and needs no API keys:
+
+```bash
+vendor/bin/testbench workbench:install
+vendor/bin/testbench ai-observatory:install
+vendor/bin/testbench migrate
+vendor/bin/testbench ai-observatory:demo
+vendor/bin/testbench serve
+```
+
+See [workbench/README.md](workbench/README.md) for real-provider opt-in notes.
+
 ## Maintenance
 
 ```bash
@@ -188,3 +251,28 @@ transactions. Foreign keys restrict accidental parent deletion.
 | 0.10.1 | Source verified and contract tested | `LaravelAiSdkV010Adapter` |
 
 See the [verified SDK event inventory](docs/sdk-events-v0.10.1.md).
+
+An SDK version outside the tested range is reported as untested or unsupported
+by `ai-observatory:status`; it is never silently presented as compatible.
+
+## Troubleshooting
+
+See [Troubleshooting](docs/troubleshooting.md) for missing traces, queue,
+database, authorization, and stale-stream checks.
+
+## Security and contributing
+
+Report vulnerabilities according to [SECURITY.md](SECURITY.md). Development
+setup, source-verification rules, and the required quality checks are in
+[CONTRIBUTING.md](CONTRIBUTING.md). Release changes are tracked in
+[CHANGELOG.md](CHANGELOG.md).
+
+## Current limitations
+
+- SDK compatibility is verified only for `laravel/ai` 0.10.1.
+- Provider failover is recorded only to the extent exposed by official SDK
+  events.
+- Interrupted streams require stale-trace recovery.
+- User and tenant correlation is currently supplied as context tags; dedicated
+  resolver callbacks are planned.
+- Prices are application-managed estimates and are never synchronized online.

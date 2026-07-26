@@ -6,6 +6,7 @@ use Kanary\AiObservatory\AiObservatoryServiceProvider;
 use Laravel\Ai\AiServiceProvider;
 use Orchestra\Testbench\Concerns\InteractsWithPublishedFiles;
 use Orchestra\Testbench\TestCase as Orchestra;
+use Workbench\App\Providers\WorkbenchServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
@@ -28,6 +29,7 @@ abstract class TestCase extends Orchestra
         return [
             AiServiceProvider::class,
             AiObservatoryServiceProvider::class,
+            WorkbenchServiceProvider::class,
         ];
     }
 

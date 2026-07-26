@@ -82,3 +82,47 @@ jobs:
       - run: composer test:lint
 
       - run: composer test:types
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run test:format
+
+      - run: npm run build
+
+      - run: git diff --exit-code -- dist
+
+  fresh-install:
+    name: Fresh Laravel ${{ matrix.laravel }} installation
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        laravel: ['12', '13']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          extensions: mbstring, pdo_sqlite
+
+      - run: composer install --prefer-dist --no-interaction
+
+      - name: Install into a fresh application
+        run: |
+          composer create-project "laravel/laravel:^${{ matrix.laravel }}.0" /tmp/observatory-app --no-interaction
+          cd /tmp/observatory-app
+          composer config repositories.ai-observatory path "$GITHUB_WORKSPACE"
+          composer require "kanary/laravel-ai-observatory:@dev" --dev --no-interaction
+          touch database/database.sqlite
+          php artisan ai-observatory:install --force
+          php artisan migrate --force
+          php artisan ai-observatory:status
+          php artisan route:list --path=ai-observatory
