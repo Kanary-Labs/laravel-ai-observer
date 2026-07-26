@@ -70,6 +70,13 @@ return [
         'days' => env('AI_OBSERVATORY_RETENTION_DAYS', 14),
     ],
 
+    'recovery' => [
+        'stale_after_minutes' => env(
+            'AI_OBSERVATORY_STALE_AFTER_MINUTES',
+            15,
+        ),
+    ],
+
     /*
      * Prices are estimates per one million tokens. Unknown prices must remain
      * null so unpriced usage is never presented as free usage.

@@ -16,7 +16,9 @@ class PayloadLimiter
         $bytes = strlen($encoded);
 
         if ($bytes <= $this->maxBytes) {
-            return $payload;
+            $normalized = json_decode($encoded, true, flags: JSON_THROW_ON_ERROR);
+
+            return is_array($normalized) ? $normalized : [];
         }
 
         return [

@@ -37,6 +37,9 @@ class DatabaseRecorder implements Recorder
 
     private function startTrace(TraceStarted $event): void
     {
+        $propagatedTraceId = $this->context->currentTraceId();
+        $propagatedSpanId = $this->context->currentSpanId();
+        $contextAttributes = $this->context->attributes();
         $this->context->start($event->traceId, $event->spanId);
 
         $trace = $this->newTraceQuery()->firstOrNew(['trace_id' => $event->traceId]);
@@ -48,11 +51,21 @@ class DatabaseRecorder implements Recorder
             'provider' => $event->attributes['provider'] ?? null,
             'model' => $event->attributes['model'] ?? null,
             'agent_class' => $event->attributes['agent_class'] ?? null,
-            'feature' => $event->attributes['feature'] ?? null,
+            'feature' => $event->attributes['feature']
+                ?? $contextAttributes['feature']
+                ?? null,
             'environment' => app()->environment(),
             'started_at' => $event->startedAt,
-            'metadata' => $event->attributes,
-            'tags' => $this->context->attributes(),
+            'metadata' => [
+                ...$event->attributes,
+                ...($propagatedTraceId === null || $propagatedTraceId === $event->traceId
+                    ? []
+                    : ['propagated_context' => [
+                        'parent_trace_id' => $propagatedTraceId,
+                        'parent_span_id' => $propagatedSpanId,
+                    ]]),
+            ],
+            'tags' => $contextAttributes,
         ]);
         $trace->save();
     }

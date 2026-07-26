@@ -5,13 +5,16 @@ namespace Kanary\AiObservatory\Adapters;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiV010Data;
+use Kanary\AiObservatory\Data\EventRecorded;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
+use Kanary\AiObservatory\Data\ThrowableData;
 use Kanary\AiObservatory\Enums\SpanStatus;
 use Kanary\AiObservatory\Enums\SpanType;
 use Laravel\Ai\Events\AgentPrompted;
 use Laravel\Ai\Responses\Data\Step;
 use Laravel\Ai\Responses\StreamedAgentResponse;
+use Laravel\Ai\Streaming\Events\Error as StreamError;
 use Laravel\Ai\Streaming\Events\StreamEnd;
 use Laravel\Ai\Streaming\Events\StreamStart;
 use Laravel\Ai\Streaming\Events\TextDelta;
@@ -115,9 +118,22 @@ class ModelEventAdapter implements AiSdkEventAdapter
 
         $spanId = (string) Str::uuid7();
         $firstToken = $response->events->whereInstanceOf(TextDelta::class)->first();
+        $streamError = $response->events
+            ->whereInstanceOf(StreamError::class)
+            ->first(fn (StreamError $error): bool => ! $error->recoverable);
         $startedAt = CarbonImmutable::createFromTimestamp($streamStart->timestamp);
         $endedAt = CarbonImmutable::createFromTimestamp($streamEnd->timestamp);
-        $successful = $streamEnd->reason !== 'error';
+        $firstTokenAt = $firstToken instanceof TextDelta
+            ? CarbonImmutable::createFromTimestamp($firstToken->timestamp)
+            : null;
+        $timeToFirstToken = $firstTokenAt === null
+            ? null
+            : (int) round($startedAt->diffInMilliseconds($firstTokenAt, true));
+        $successful = $streamEnd->reason !== 'error'
+            && ! $streamError instanceof StreamError;
+        $error = $streamError instanceof StreamError
+            ? new ThrowableData($streamError->type, $streamError->message)
+            : null;
 
         return [
             new SpanStarted(
@@ -131,11 +147,32 @@ class ModelEventAdapter implements AiSdkEventAdapter
                 attributes: [
                     'provider' => $streamStart->provider,
                     'model' => $streamStart->model,
-                    'first_token_at' => $firstToken instanceof TextDelta
-                        ? CarbonImmutable::createFromTimestamp($firstToken->timestamp)->toIso8601String()
-                        : null,
+                    'request_started_at' => $startedAt->toIso8601String(),
+                    'first_token_at' => $firstTokenAt?->toIso8601String(),
+                    'time_to_first_token_ms' => $timeToFirstToken,
                 ],
             ),
+            new EventRecorded(
+                traceId: $event->invocationId,
+                spanId: $spanId,
+                eventType: 'stream_started',
+                occurredAt: $startedAt,
+                payload: [
+                    'provider' => $streamStart->provider,
+                    'model' => $streamStart->model,
+                ],
+            ),
+            ...($firstTokenAt === null ? [] : [
+                new EventRecorded(
+                    traceId: $event->invocationId,
+                    spanId: $spanId,
+                    eventType: 'first_token_received',
+                    occurredAt: $firstTokenAt,
+                    payload: [
+                        'time_to_first_token_ms' => $timeToFirstToken,
+                    ],
+                ),
+            ]),
             new SpanFinished(
                 traceId: $event->invocationId,
                 spanId: $spanId,
@@ -145,10 +182,23 @@ class ModelEventAdapter implements AiSdkEventAdapter
                     'text' => $response->text,
                     'finish_reason' => $streamEnd->reason,
                 ],
-                usage: $this->tokenUsage($streamEnd->usage),
+                usage: $this->tokenUsage($response->usage),
+                error: $error,
                 attributes: [
                     'provider' => $streamStart->provider,
                     'model' => $streamStart->model,
+                    'response_completed_at' => $endedAt->toIso8601String(),
+                    'time_to_first_token_ms' => $timeToFirstToken,
+                ],
+            ),
+            new EventRecorded(
+                traceId: $event->invocationId,
+                spanId: $spanId,
+                eventType: 'response_completed',
+                occurredAt: $endedAt,
+                payload: [
+                    'finish_reason' => $streamEnd->reason,
+                    'successful' => $successful,
                 ],
             ),
         ];

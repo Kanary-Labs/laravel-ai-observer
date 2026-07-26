@@ -19,6 +19,7 @@ use Kanary\AiObservatory\Authorization\Authorization;
 use Kanary\AiObservatory\Console\ClearCommand;
 use Kanary\AiObservatory\Console\InstallCommand;
 use Kanary\AiObservatory\Console\PruneCommand;
+use Kanary\AiObservatory\Console\RecoverStaleCommand;
 use Kanary\AiObservatory\Console\StatusCommand;
 use Kanary\AiObservatory\Context\TraceContext;
 use Kanary\AiObservatory\Contracts\CostCalculator;
@@ -29,6 +30,8 @@ use Kanary\AiObservatory\Contracts\TraceQueryRepository;
 use Kanary\AiObservatory\Contracts\TraceRepository;
 use Kanary\AiObservatory\Listeners\CaptureAiSdkEvent;
 use Kanary\AiObservatory\Pricing\ConfigCostCalculator;
+use Kanary\AiObservatory\Recording\InternalEventSerializer;
+use Kanary\AiObservatory\Recording\PersistenceRecorder;
 use Kanary\AiObservatory\Recording\RecordingPipeline;
 use Kanary\AiObservatory\Redaction\DefaultRedactor;
 use Kanary\AiObservatory\Redaction\RedactionManager;
@@ -79,7 +82,9 @@ class AiObservatoryServiceProvider extends ServiceProvider
         $this->app->singleton(PayloadLimiter::class, fn () => new PayloadLimiter(
             (int) config('ai-observatory.payloads.max_bytes', 100_000),
         ));
+        $this->app->singleton(InternalEventSerializer::class);
         $this->app->scoped(SamplingRecorder::class);
+        $this->app->scoped(PersistenceRecorder::class);
         $this->app->scoped(Recorder::class, RecordingPipeline::class);
     }
 
@@ -110,6 +115,7 @@ class AiObservatoryServiceProvider extends ServiceProvider
                 InstallCommand::class,
                 PruneCommand::class,
                 ClearCommand::class,
+                RecoverStaleCommand::class,
                 StatusCommand::class,
             ]);
 

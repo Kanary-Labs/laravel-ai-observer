@@ -200,6 +200,16 @@ function SpanDrawer({ span, onClose }) {
                                 {formatCost(span.estimated_cost, span.currency)}
                             </dd>
                         </div>
+                        <div>
+                            <dt className="text-sm/5 font-medium text-zinc-900">
+                                Time to first token
+                            </dt>
+                            <dd className="text-base/7 text-zinc-500 tabular-nums sm:text-sm/6">
+                                {formatDuration(
+                                    span.metadata?.time_to_first_token_ms,
+                                )}
+                            </dd>
+                        </div>
                     </dl>
 
                     <div className="grid gap-5 pt-6">

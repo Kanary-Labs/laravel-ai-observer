@@ -45,6 +45,7 @@ final class StatusCommand extends Command
             ['Queue connection', (string) (config('ai-observatory.queue.connection') ?? 'default')],
             ['Queue name', (string) config('ai-observatory.queue.name')],
             ['Retention', config('ai-observatory.retention.days').' day(s)'],
+            ['Stale recovery', config('ai-observatory.recovery.stale_after_minutes').' minute(s)'],
             ['Dashboard path', '/'.trim((string) config('ai-observatory.path'), '/')],
             ['Authorization', $authorization->description()],
         ]);

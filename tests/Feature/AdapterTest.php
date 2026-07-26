@@ -205,11 +205,16 @@ it('maps streaming model timing and usage from completed stream events', functio
 
     $adapted = (new ModelEventAdapter)->adapt($event);
 
-    expect($adapted)->toHaveCount(2)
+    expect($adapted)->toHaveCount(5)
         ->and($adapted[0]->startedAt->timestamp)->toBe(1_700_000_000)
         ->and($adapted[0]->attributes['first_token_at'])->not->toBeNull()
-        ->and($adapted[1]->endedAt->timestamp)->toBe(1_700_000_002)
-        ->and($adapted[1]->usage->total)->toBe(11);
+        ->and($adapted[0]->attributes['time_to_first_token_ms'])->toBe(1_000)
+        ->and($adapted[1])->toBeInstanceOf(EventRecorded::class)
+        ->and($adapted[1]->eventType)->toBe('stream_started')
+        ->and($adapted[2]->eventType)->toBe('first_token_received')
+        ->and($adapted[3]->endedAt->timestamp)->toBe(1_700_000_002)
+        ->and($adapted[3]->usage->total)->toBe(11)
+        ->and($adapted[4]->eventType)->toBe('response_completed');
 });
 
 it('maps tool start and completion using the SDK tool name resolver', function () {
