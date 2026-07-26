@@ -281,6 +281,13 @@ export default function App({ className }) {
                             onPage={(page) =>
                                 setFilters((current) => ({ ...current, page }))
                             }
+                            onPerPage={(perPage) =>
+                                setFilters((current) => ({
+                                    ...current,
+                                    page: 1,
+                                    per_page: perPage,
+                                }))
+                            }
                             onRefresh={() => setRefresh((value) => value + 1)}
                             onReset={() => setFilters(emptyFilters)}
                         />

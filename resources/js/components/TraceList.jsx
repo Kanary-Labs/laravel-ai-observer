@@ -11,6 +11,7 @@ import {
     formatTokens,
     shortClass,
 } from '../format'
+import { DataTable } from './DataTable'
 import { Filters } from './Filters'
 import { Pagination } from './Pagination'
 import { StatusBadge } from './StatusBadge'
@@ -33,26 +34,19 @@ function EmptyState({ filtered }) {
     )
 }
 
-function LoadingRows() {
-    return Array.from({ length: 7 }, (_, index) => (
-        <div
-            key={index}
-            className="grid animate-pulse gap-2 border-b border-zinc-950/5 py-4"
-        >
-            <div className="h-4 w-2/5 rounded bg-zinc-100" />
-            <div className="h-3 w-3/5 rounded bg-zinc-100" />
-        </div>
-    ))
-}
-
 function TraceIdentity({ trace, onNavigate }) {
     const agent = shortClass(trace.agent_class)
+
+    function navigate(event) {
+        event.stopPropagation()
+        onNavigate(trace.trace_id)
+    }
 
     return (
         <div className="grid min-w-0 gap-0.5">
             <button
                 type="button"
-                onClick={() => onNavigate(trace.trace_id)}
+                onClick={navigate}
                 className="group relative min-w-0 rounded text-left observatory-focus"
             >
                 <div className="flex min-w-0 items-center gap-1.5">
@@ -83,9 +77,24 @@ function TraceIdentity({ trace, onNavigate }) {
     )
 }
 
+function MobileLoadingRows() {
+    return Array.from({ length: 6 }, (_, index) => (
+        <div
+            key={index}
+            className="grid animate-pulse gap-3 border-b border-zinc-950/5 py-4"
+        >
+            <div className="h-4 w-2/5 rounded bg-zinc-100" />
+            <div className="h-3 w-3/5 rounded bg-zinc-100" />
+        </div>
+    ))
+}
+
 function MobileTrace({ trace, onNavigate }) {
     return (
-        <article className="grid gap-3 border-b border-zinc-950/10 py-4 lg:hidden">
+        <article
+            onClick={() => onNavigate(trace.trace_id)}
+            className="grid cursor-pointer gap-3 border-b border-zinc-950/10 py-4 lg:hidden"
+        >
             <div className="flex min-w-0 items-start justify-between gap-3">
                 <TraceIdentity trace={trace} onNavigate={onNavigate} />
                 <StatusBadge status={trace.status} compact />
@@ -134,6 +143,7 @@ export function TraceList({
     onFilter,
     onNavigate,
     onPage,
+    onPerPage,
     onRefresh,
     onReset,
     traces,
@@ -141,10 +151,92 @@ export function TraceList({
     const filtered = Object.entries(filters).some(
         ([key, value]) => !['page', 'per_page'].includes(key) && value !== '',
     )
+    const columns = [
+        {
+            key: 'agent',
+            header: 'Agent',
+            className: 'w-[32%]',
+            cell: (trace) => (
+                <div className="min-w-56">
+                    <TraceIdentity trace={trace} onNavigate={onNavigate} />
+                </div>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            cell: (trace) => <StatusBadge status={trace.status} compact />,
+        },
+        {
+            key: 'model',
+            header: 'Provider / model',
+            className: 'w-[20%]',
+            cell: (trace) => (
+                <div className="grid gap-0.5">
+                    <div className="text-sm/5 text-zinc-900">
+                        {trace.provider ?? '—'}
+                    </div>
+                    <div className="max-w-48 truncate font-mono text-xs/5 text-zinc-500">
+                        {trace.model ?? '—'}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: 'tokens',
+            header: 'Tokens',
+            align: 'right',
+            cell: (trace) => (
+                <span className="text-zinc-900 tabular-nums">
+                    {formatTokens(trace.total_tokens)}
+                </span>
+            ),
+        },
+        {
+            key: 'cost',
+            header: 'Cost',
+            align: 'right',
+            cell: (trace) => (
+                <span className="text-zinc-500 tabular-nums">
+                    {formatCost(trace.estimated_cost, trace.currency)}
+                </span>
+            ),
+        },
+        {
+            key: 'latency',
+            header: 'Latency',
+            align: 'right',
+            cell: (trace) => (
+                <span className="text-zinc-900 tabular-nums">
+                    {formatDuration(trace.duration_ms)}
+                </span>
+            ),
+        },
+        {
+            key: 'started',
+            header: 'Started',
+            align: 'right',
+            cell: (trace) => (
+                <time
+                    dateTime={trace.started_at}
+                    title={trace.started_at}
+                    className="text-zinc-600 tabular-nums"
+                >
+                    {formatRelativeDate(trace.started_at)}
+                </time>
+            ),
+        },
+    ]
+    const emptyState = <EmptyState filtered={filtered} />
 
     return (
-        <main className={clsx('isolate min-h-dvh min-w-0 bg-white', className)}>
-            <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+        <main
+            className={clsx(
+                'isolate min-h-dvh min-w-0 bg-white lg:h-dvh lg:overflow-hidden',
+                className,
+            )}
+        >
+            <div className="mx-auto flex min-h-0 max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 sm:py-6 lg:h-full lg:px-8">
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex min-w-0 items-baseline gap-3">
                         <h1 className="text-2xl font-semibold tracking-tight text-balance text-zinc-950">
@@ -182,118 +274,41 @@ export function TraceList({
                     onReset={onReset}
                 />
 
-                <section aria-label="Recorded traces">
-                    {loading && traces.length === 0 ? <LoadingRows /> : null}
-
-                    {!loading
-                        ? traces.map((trace) => (
-                              <MobileTrace
-                                  key={trace.trace_id}
-                                  trace={trace}
-                                  onNavigate={onNavigate}
-                              />
-                          ))
-                        : null}
-
-                    <div className="-mx-4 -my-2 hidden overflow-x-auto whitespace-nowrap sm:-mx-6 lg:-mx-8 lg:block">
-                        <div className="inline-block min-w-full px-4 py-2 align-middle sm:px-6 lg:px-8">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b border-zinc-950/10">
-                                        <th className="py-2.5 pr-4 text-left text-sm/5 font-medium whitespace-nowrap text-zinc-500">
-                                            Agent
-                                        </th>
-                                        <th className="px-4 py-2.5 text-left text-sm/5 font-medium whitespace-nowrap text-zinc-500">
-                                            Status
-                                        </th>
-                                        <th className="px-4 py-2.5 text-left text-sm/5 font-medium whitespace-nowrap text-zinc-500">
-                                            Provider / model
-                                        </th>
-                                        <th className="px-4 py-2.5 text-right text-sm/5 font-medium whitespace-nowrap text-zinc-500">
-                                            Tokens
-                                        </th>
-                                        <th className="px-4 py-2.5 text-right text-sm/5 font-medium whitespace-nowrap text-zinc-500">
-                                            Cost
-                                        </th>
-                                        <th className="px-4 py-2.5 text-right text-sm/5 font-medium whitespace-nowrap text-zinc-500">
-                                            Latency
-                                        </th>
-                                        <th className="py-2.5 pl-4 text-right text-sm/5 font-medium whitespace-nowrap text-zinc-500">
-                                            Started
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {!loading &&
-                                        traces.map((trace) => (
-                                            <tr
-                                                key={trace.trace_id}
-                                                className="border-b border-zinc-950/5"
-                                            >
-                                                <td className="py-3 pr-4 align-middle">
-                                                    <div className="min-w-56">
-                                                        <TraceIdentity
-                                                            trace={trace}
-                                                            onNavigate={
-                                                                onNavigate
-                                                            }
-                                                        />
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 align-middle">
-                                                    <StatusBadge
-                                                        status={trace.status}
-                                                        compact
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-3 align-middle">
-                                                    <div className="grid gap-0.5">
-                                                        <div className="text-sm/5 text-zinc-900">
-                                                            {trace.provider ??
-                                                                '—'}
-                                                        </div>
-                                                        <div className="max-w-44 truncate font-mono text-sm/5 text-zinc-500">
-                                                            {trace.model ?? '—'}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-right align-middle text-sm/5 text-zinc-900 tabular-nums">
-                                                    {formatTokens(
-                                                        trace.total_tokens,
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-right align-middle text-sm/5 text-zinc-500 tabular-nums">
-                                                    {formatCost(
-                                                        trace.estimated_cost,
-                                                        trace.currency,
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-right align-middle text-sm/5 text-zinc-900 tabular-nums">
-                                                    {formatDuration(
-                                                        trace.duration_ms,
-                                                    )}
-                                                </td>
-                                                <td className="py-3 pl-4 text-right align-middle">
-                                                    <div
-                                                        title={trace.started_at}
-                                                        className="text-sm/5 text-zinc-600 tabular-nums"
-                                                    >
-                                                        {formatRelativeDate(
-                                                            trace.started_at,
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                </tbody>
-                            </table>
-                        </div>
+                <section
+                    className="flex min-h-0 grow flex-col"
+                    aria-label="Recorded traces"
+                >
+                    <div className="lg:hidden">
+                        {loading && traces.length === 0 ? (
+                            <MobileLoadingRows />
+                        ) : null}
+                        {!loading
+                            ? traces.map((trace) => (
+                                  <MobileTrace
+                                      key={trace.trace_id}
+                                      trace={trace}
+                                      onNavigate={onNavigate}
+                                  />
+                              ))
+                            : null}
+                        {!loading && traces.length === 0 ? emptyState : null}
                     </div>
 
-                    {!loading && traces.length === 0 ? (
-                        <EmptyState filtered={filtered} />
-                    ) : null}
-                    <Pagination meta={meta} onPage={onPage} />
+                    <DataTable
+                        columns={columns}
+                        emptyState={emptyState}
+                        loading={loading}
+                        rows={traces}
+                        rowKey={(trace) => trace.trace_id}
+                        onRowClick={(trace) => onNavigate(trace.trace_id)}
+                    />
+                    <Pagination
+                        className="shrink-0"
+                        meta={meta}
+                        perPage={filters.per_page}
+                        onPage={onPage}
+                        onPerPage={onPerPage}
+                    />
                 </section>
             </div>
         </main>
