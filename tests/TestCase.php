@@ -3,6 +3,7 @@
 namespace Kanary\AiObservatory\Tests;
 
 use Kanary\AiObservatory\AiObservatoryServiceProvider;
+use Laravel\Ai\AiServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -11,12 +12,13 @@ abstract class TestCase extends Orchestra
     {
         parent::setUp();
 
-        $this->artisan('migrate', ['--database' => 'testing'])->run();
+        $this->artisan('migrate:fresh', ['--database' => 'testing'])->run();
     }
 
     protected function getPackageProviders($app): array
     {
         return [
+            AiServiceProvider::class,
             AiObservatoryServiceProvider::class,
         ];
     }

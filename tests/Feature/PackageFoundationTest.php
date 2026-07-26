@@ -32,8 +32,8 @@ it('creates the portable trace and span schema', function () {
 
 it('relates traces to their spans by trace id', function () {
     $trace = Trace::query()->create([
-        'trace_id' => '01J00000000000000000000001',
-        'root_span_id' => '01J00000000000000000000002',
+        'trace_id' => '018f47a2-4f4e-7d10-9c2f-6f447d7a2001',
+        'root_span_id' => '018f47a2-4f4e-7d10-9c2f-6f447d7a2002',
         'name' => 'Test trace',
         'status' => 'running',
         'started_at' => now(),
@@ -55,8 +55,8 @@ it('relates traces to their spans by trace id', function () {
 
 it('cascades span deletion when a trace is removed', function () {
     $trace = Trace::query()->create([
-        'trace_id' => '01J00000000000000000000003',
-        'root_span_id' => '01J00000000000000000000004',
+        'trace_id' => '018f47a2-4f4e-7d10-9c2f-6f447d7a2003',
+        'root_span_id' => '018f47a2-4f4e-7d10-9c2f-6f447d7a2004',
         'name' => 'Disposable trace',
         'status' => 'running',
         'started_at' => now(),

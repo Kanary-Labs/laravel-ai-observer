@@ -1,0 +1,35 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::connection(config('ai-observatory.connection'))->create('ai_observatory_events', function (Blueprint $table): void {
+            $table->ulid('id')->primary();
+            $table->uuid('trace_id');
+            $table->uuid('span_id')->nullable();
+            $table->string('event_type');
+            $table->timestamp('occurred_at');
+            $table->json('payload')->nullable();
+            $table->timestamp('created_at')->nullable();
+
+            $table->index(['trace_id', 'occurred_at']);
+            $table->index('span_id');
+            $table->index('event_type');
+
+            $table->foreign('trace_id')
+                ->references('trace_id')
+                ->on('ai_observatory_traces')
+                ->cascadeOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::connection(config('ai-observatory.connection'))->dropIfExists('ai_observatory_events');
+    }
+};
