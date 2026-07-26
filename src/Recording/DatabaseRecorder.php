@@ -4,6 +4,7 @@ namespace Kanary\AiObservatory\Recording;
 
 use Illuminate\Database\Eloquent\Builder;
 use Kanary\AiObservatory\Context\TraceContext;
+use Kanary\AiObservatory\Contracts\CostCalculator;
 use Kanary\AiObservatory\Contracts\Recorder;
 use Kanary\AiObservatory\Data\EventRecorded;
 use Kanary\AiObservatory\Data\SpanFinished;
@@ -17,7 +18,10 @@ use Kanary\AiObservatory\Models\Trace;
 
 class DatabaseRecorder implements Recorder
 {
-    public function __construct(private readonly TraceContext $context) {}
+    public function __construct(
+        private readonly TraceContext $context,
+        private readonly CostCalculator $costCalculator,
+    ) {}
 
     public function record(object $event): void
     {
@@ -90,6 +94,14 @@ class DatabaseRecorder implements Recorder
         }
 
         $usage = $event->usage;
+        $provider = $event->attributes['provider'] ?? $span->provider;
+        $model = $event->attributes['model'] ?? $span->model;
+        $cost = $span->type === SpanType::Model->value
+            && is_string($provider)
+            && is_string($model)
+            && $usage !== null
+                ? $this->costCalculator->calculate($provider, $model, $usage)
+                : null;
         $span->fill([
             'status' => $event->status->value,
             'ended_at' => $event->endedAt,
@@ -101,10 +113,17 @@ class DatabaseRecorder implements Recorder
             'cached_input_tokens' => $usage?->cachedInput,
             'reasoning_tokens' => $usage?->reasoning,
             'total_tokens' => $usage?->total,
+            'estimated_cost' => $cost?->amount,
             'response_payload' => $event->response ?: null,
             'metadata' => [
                 ...($span->metadata ?? []),
                 ...$event->attributes,
+                ...($cost === null ? [] : ['pricing' => [
+                    'currency' => $cost->currency,
+                    'catalog_version' => $cost->catalogVersion,
+                    'effective_date' => $cost->effectiveDate,
+                    'estimated' => true,
+                ]]),
             ],
             'error_type' => $event->error?->type,
             'error_message' => $event->error?->message,
@@ -128,6 +147,7 @@ class DatabaseRecorder implements Recorder
         $modelSpans = $this->newSpanQuery()
             ->where('trace_id', $event->traceId)
             ->where('type', SpanType::Model->value);
+        $cost = $this->aggregateCost(clone $modelSpans);
 
         $trace->fill([
             'status' => $event->status->value,
@@ -140,9 +160,12 @@ class DatabaseRecorder implements Recorder
             'cached_input_tokens' => $this->nullableSum(clone $modelSpans, 'cached_input_tokens'),
             'reasoning_tokens' => $this->nullableSum(clone $modelSpans, 'reasoning_tokens'),
             'total_tokens' => $this->nullableSum(clone $modelSpans, 'total_tokens'),
+            'estimated_cost' => $cost['amount'],
+            'currency' => $cost['currency'],
             'metadata' => [
                 ...($trace->metadata ?? []),
                 ...$event->attributes,
+                ...($cost['mixed_currencies'] ? ['cost_aggregation' => 'mixed_currencies'] : []),
                 ...($event->error === null ? [] : ['error' => [
                     'type' => $event->error->type,
                     'message' => $event->error->message,
@@ -189,6 +212,47 @@ class DatabaseRecorder implements Recorder
         }
 
         return (int) $query->sum($column);
+    }
+
+    /**
+     * @param  Builder<Span>  $query
+     * @return array{amount: string|null, currency: string|null, mixed_currencies: bool}
+     */
+    private function aggregateCost(Builder $query): array
+    {
+        if (! (clone $query)->exists() || (clone $query)->whereNull('estimated_cost')->exists()) {
+            return [
+                'amount' => null,
+                'currency' => null,
+                'mixed_currencies' => false,
+            ];
+        }
+
+        $spans = $query->get(['estimated_cost', 'metadata']);
+        $currencies = $spans
+            ->map(fn (Span $span): mixed => $span->metadata['pricing']['currency'] ?? null)
+            ->filter(fn (mixed $currency): bool => is_string($currency))
+            ->unique()
+            ->values();
+
+        if ($currencies->count() !== 1) {
+            return [
+                'amount' => null,
+                'currency' => null,
+                'mixed_currencies' => $currencies->count() > 1,
+            ];
+        }
+
+        return [
+            'amount' => number_format(
+                $spans->sum(fn (Span $span): float => (float) $span->estimated_cost),
+                8,
+                '.',
+                '',
+            ),
+            'currency' => $currencies->first(),
+            'mixed_currencies' => false,
+        ];
     }
 
     /**

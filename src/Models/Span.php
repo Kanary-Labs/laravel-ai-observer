@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property int $sequence
+ * @property string $type
+ * @property string|null $provider
+ * @property string|null $model
+ * @property string|null $estimated_cost
  * @property CarbonImmutable|null $started_at
  * @property array<string, mixed>|null $metadata
  */

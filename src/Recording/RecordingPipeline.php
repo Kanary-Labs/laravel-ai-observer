@@ -8,12 +8,13 @@ use Kanary\AiObservatory\Data\EventRecorded;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
 use Kanary\AiObservatory\Enums\SpanType;
+use Kanary\AiObservatory\Sampling\SamplingRecorder;
 use Kanary\AiObservatory\Support\PayloadLimiter;
 
 class RecordingPipeline implements Recorder
 {
     public function __construct(
-        private readonly DatabaseRecorder $recorder,
+        private readonly SamplingRecorder $recorder,
         private readonly Redactor $redactor,
         private readonly PayloadLimiter $limiter,
     ) {}
