@@ -3,6 +3,7 @@
 namespace Kanary\AiObservatory;
 
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Kanary\AiObservatory\Adapters\AiSdkEventAdapter;
 use Kanary\AiObservatory\Adapters\AiSdkEventAdapterRegistry;
@@ -40,6 +41,16 @@ final class AiObservatory
         self::tag('feature', $feature);
     }
 
+    public static function user(Model|string|int|null $user): void
+    {
+        self::identity('user', $user);
+    }
+
+    public static function tenant(Model|string|int|null $tenant): void
+    {
+        self::identity('tenant', $tenant);
+    }
+
     /**
      * @template TReturn
      *
@@ -50,5 +61,21 @@ final class AiObservatory
     public static function withContext(array $context, Closure $callback): mixed
     {
         return app(TraceContext::class)->scope($context, $callback);
+    }
+
+    private static function identity(
+        string $name,
+        Model|string|int|null $identity,
+    ): void {
+        self::tag(
+            "{$name}_id",
+            $identity instanceof Model
+                ? (string) $identity->getKey()
+                : ($identity === null ? null : (string) $identity),
+        );
+        self::tag(
+            "{$name}_type",
+            $identity instanceof Model ? $identity->getMorphClass() : null,
+        );
     }
 }

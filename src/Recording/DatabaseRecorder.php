@@ -37,9 +37,19 @@ class DatabaseRecorder implements Recorder
 
     private function startTrace(TraceStarted $event): void
     {
-        $propagatedTraceId = $this->context->currentTraceId();
-        $propagatedSpanId = $this->context->currentSpanId();
-        $contextAttributes = $this->context->attributes();
+        $capturedContext = $event->context;
+        $capturedAttributes = $capturedContext['attributes'] ?? null;
+        $contextAttributes = is_array($capturedAttributes)
+            ? $capturedAttributes
+            : $this->context->attributes();
+        $capturedTraceId = $capturedContext['parent_trace_id'] ?? null;
+        $capturedSpanId = $capturedContext['parent_span_id'] ?? null;
+        $propagatedTraceId = is_string($capturedTraceId)
+            ? $capturedTraceId
+            : $this->context->currentTraceId();
+        $propagatedSpanId = is_string($capturedSpanId)
+            ? $capturedSpanId
+            : $this->context->currentSpanId();
         $this->context->start($event->traceId, $event->spanId);
 
         $trace = $this->newTraceQuery()->firstOrNew(['trace_id' => $event->traceId]);
@@ -51,6 +61,10 @@ class DatabaseRecorder implements Recorder
             'provider' => $event->attributes['provider'] ?? null,
             'model' => $event->attributes['model'] ?? null,
             'agent_class' => $event->attributes['agent_class'] ?? null,
+            'user_id' => $this->nullableString($contextAttributes['user_id'] ?? null),
+            'user_type' => $this->nullableString($contextAttributes['user_type'] ?? null),
+            'tenant_id' => $this->nullableString($contextAttributes['tenant_id'] ?? null),
+            'tenant_type' => $this->nullableString($contextAttributes['tenant_type'] ?? null),
             'feature' => $event->attributes['feature']
                 ?? $contextAttributes['feature']
                 ?? null,
@@ -109,7 +123,7 @@ class DatabaseRecorder implements Recorder
         $usage = $event->usage;
         $provider = $event->attributes['provider'] ?? $span->provider;
         $model = $event->attributes['model'] ?? $span->model;
-        $cost = $span->type === SpanType::Model->value
+        $cost = $this->supportsUsageCost($span->type)
             && is_string($provider)
             && is_string($model)
             && $usage !== null
@@ -157,10 +171,8 @@ class DatabaseRecorder implements Recorder
             return;
         }
 
-        $modelSpans = $this->newSpanQuery()
-            ->where('trace_id', $event->traceId)
-            ->where('type', SpanType::Model->value);
-        $cost = $this->aggregateCost(clone $modelSpans);
+        $usageSpans = $this->usageSpans($trace);
+        $cost = $this->aggregateCost(clone $usageSpans);
 
         $trace->fill([
             'status' => $event->status->value,
@@ -168,11 +180,11 @@ class DatabaseRecorder implements Recorder
             'duration_ms' => $trace->started_at === null
                 ? null
                 : (int) round($trace->started_at->diffInMilliseconds($event->endedAt, true)),
-            'input_tokens' => $this->nullableSum(clone $modelSpans, 'input_tokens'),
-            'output_tokens' => $this->nullableSum(clone $modelSpans, 'output_tokens'),
-            'cached_input_tokens' => $this->nullableSum(clone $modelSpans, 'cached_input_tokens'),
-            'reasoning_tokens' => $this->nullableSum(clone $modelSpans, 'reasoning_tokens'),
-            'total_tokens' => $this->nullableSum(clone $modelSpans, 'total_tokens'),
+            'input_tokens' => $this->nullableSum(clone $usageSpans, 'input_tokens'),
+            'output_tokens' => $this->nullableSum(clone $usageSpans, 'output_tokens'),
+            'cached_input_tokens' => $this->nullableSum(clone $usageSpans, 'cached_input_tokens'),
+            'reasoning_tokens' => $this->nullableSum(clone $usageSpans, 'reasoning_tokens'),
+            'total_tokens' => $this->nullableSum(clone $usageSpans, 'total_tokens'),
             'estimated_cost' => $cost['amount'],
             'currency' => $cost['currency'],
             'metadata' => [
@@ -215,6 +227,43 @@ class DatabaseRecorder implements Recorder
         return ((int) $this->newSpanQuery()
             ->where('trace_id', $traceId)
             ->max('sequence')) + 1;
+    }
+
+    /** @return Builder<Span> */
+    private function usageSpans(Trace $trace): Builder
+    {
+        $query = $this->newSpanQuery()->where('trace_id', $trace->trace_id);
+
+        if ($trace->agent_class !== null) {
+            return $query->where('type', SpanType::Model->value);
+        }
+
+        return $query->where(function (Builder $usage): void {
+            $usage->whereNotNull('input_tokens')
+                ->orWhereNotNull('output_tokens')
+                ->orWhereNotNull('cached_input_tokens')
+                ->orWhereNotNull('reasoning_tokens')
+                ->orWhereNotNull('total_tokens');
+        });
+    }
+
+    private function supportsUsageCost(string $type): bool
+    {
+        return in_array($type, [
+            SpanType::Model->value,
+            SpanType::Embedding->value,
+            SpanType::Rerank->value,
+            SpanType::Image->value,
+            SpanType::Audio->value,
+            SpanType::Transcription->value,
+        ], true);
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        return is_string($value) || is_int($value)
+            ? (string) $value
+            : null;
     }
 
     /** @param Builder<Span> $query */

@@ -27,6 +27,7 @@ final class InternalEventSerializer
                 'name' => $event->name,
                 'started_at' => $event->startedAt->toISOString(),
                 'attributes' => $event->attributes,
+                'context' => $event->context,
             ],
             $event instanceof TraceFinished => [
                 'type' => 'trace_finished',
@@ -92,6 +93,7 @@ final class InternalEventSerializer
                 $this->string($payload, 'name'),
                 $this->date($payload, 'started_at'),
                 $this->array($payload, 'attributes'),
+                $this->array($payload, 'context'),
             ),
             'trace_finished' => new TraceFinished(
                 $this->string($payload, 'trace_id'),

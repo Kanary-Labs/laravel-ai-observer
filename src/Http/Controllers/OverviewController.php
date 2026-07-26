@@ -5,7 +5,6 @@ namespace Kanary\AiObservatory\Http\Controllers;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Collection;
 use Kanary\AiObservatory\Models\Span;
 use Kanary\AiObservatory\Models\Trace;
 
@@ -33,12 +32,7 @@ final class OverviewController
                 ->doesntExist()
                 ? $currencyValue
                 : null;
-        $durations = (clone $traces)
-            ->whereNotNull('duration_ms')
-            ->orderBy('duration_ms')
-            ->pluck('duration_ms')
-            ->map(fn (mixed $duration): int => (int) $duration)
-            ->values();
+        $durations = $this->durationMetrics($traces);
 
         return response()->json([
             'data' => [
@@ -55,10 +49,8 @@ final class OverviewController
                             ->sum('estimated_cost')
                         : null,
                     'currency' => $currency,
-                    'average_duration_ms' => $durations->isEmpty()
-                        ? null
-                        : (int) round($durations->sum() / $durations->count()),
-                    'p95_duration_ms' => $this->percentile($durations, 95),
+                    'average_duration_ms' => $durations['average'],
+                    'p95_duration_ms' => $durations['p95'],
                 ],
                 'top_agents' => $this->topTraces($today, 'agent_class'),
                 'top_models' => $this->topModels($today),
@@ -101,16 +93,29 @@ final class OverviewController
         return (int) (clone $query)->sum($column);
     }
 
-    /** @param Collection<int, int> $values */
-    private function percentile(Collection $values, int $percentile): ?int
+    /**
+     * @param  Builder<Trace>  $query
+     * @return array{average: int|null, p95: int|null}
+     */
+    private function durationMetrics(Builder $query): array
     {
-        if ($values->isEmpty()) {
-            return null;
+        $durations = (clone $query)->whereNotNull('duration_ms');
+        $count = (clone $durations)->count();
+
+        if ($count === 0) {
+            return ['average' => null, 'p95' => null];
         }
 
-        $index = max(0, (int) ceil($values->count() * ($percentile / 100)) - 1);
+        $average = (clone $durations)->avg('duration_ms');
+        $p95 = (clone $durations)
+            ->orderBy('duration_ms')
+            ->offset(max(0, (int) ceil($count * 0.95) - 1))
+            ->value('duration_ms');
 
-        return $values->get($index);
+        return [
+            'average' => is_numeric($average) ? (int) round((float) $average) : null,
+            'p95' => is_numeric($p95) ? (int) $p95 : null,
+        ];
     }
 
     /**

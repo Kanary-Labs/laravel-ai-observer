@@ -16,8 +16,28 @@ class TraceContext
     /** @var array<string, mixed> */
     private array $attributes = [];
 
+    /**
+     * @var list<array{
+     *     trace_id: string|null,
+     *     span_stack: list<string>,
+     *     attributes: array<string, mixed>
+     * }>
+     */
+    private array $traceStack = [];
+
     public function start(string $traceId, string $rootSpanId): void
     {
+        if (
+            $this->currentTraceId !== $traceId
+            && (
+                $this->currentTraceId !== null
+                || $this->spanStack !== []
+                || $this->attributes !== []
+            )
+        ) {
+            $this->traceStack[] = $this->currentSnapshot();
+        }
+
         $this->currentTraceId = $traceId;
         $this->spanStack = [$rootSpanId];
         $this->syncLaravelContext();
@@ -67,15 +87,19 @@ class TraceContext
      * @return array{
      *     trace_id: string|null,
      *     span_stack: list<string>,
-     *     attributes: array<string, mixed>
+     *     attributes: array<string, mixed>,
+     *     trace_stack: list<array{
+     *         trace_id: string|null,
+     *         span_stack: list<string>,
+     *         attributes: array<string, mixed>
+     *     }>
      * }
      */
     public function snapshot(): array
     {
         return [
-            'trace_id' => $this->currentTraceId,
-            'span_stack' => $this->spanStack,
-            'attributes' => $this->attributes,
+            ...$this->currentSnapshot(),
+            'trace_stack' => $this->traceStack,
         ];
     }
 
@@ -85,12 +109,14 @@ class TraceContext
         $traceId = $snapshot['trace_id'] ?? null;
         $spanStack = $snapshot['span_stack'] ?? [];
         $attributes = $snapshot['attributes'] ?? [];
+        $traceStack = $snapshot['trace_stack'] ?? [];
 
         $this->currentTraceId = is_string($traceId) ? $traceId : null;
         $this->spanStack = is_array($spanStack)
             ? array_values(array_filter($spanStack, is_string(...)))
             : [];
         $this->attributes = is_array($attributes) ? $attributes : [];
+        $this->traceStack = $this->normalizeTraceStack($traceStack);
         $this->syncLaravelContext();
     }
 
@@ -122,10 +148,73 @@ class TraceContext
             return;
         }
 
+        if ($traceId !== null && $this->traceStack !== []) {
+            $parent = array_pop($this->traceStack);
+            $this->currentTraceId = $parent['trace_id'];
+            $this->spanStack = $parent['span_stack'];
+            $this->attributes = $parent['attributes'];
+            $this->syncLaravelContext();
+
+            return;
+        }
+
         $this->currentTraceId = null;
         $this->spanStack = [];
         $this->attributes = [];
+        $this->traceStack = [];
         $this->syncLaravelContext();
+    }
+
+    /**
+     * @return array{
+     *     trace_id: string|null,
+     *     span_stack: list<string>,
+     *     attributes: array<string, mixed>
+     * }
+     */
+    private function currentSnapshot(): array
+    {
+        return [
+            'trace_id' => $this->currentTraceId,
+            'span_stack' => $this->spanStack,
+            'attributes' => $this->attributes,
+        ];
+    }
+
+    /**
+     * @return list<array{
+     *     trace_id: string|null,
+     *     span_stack: list<string>,
+     *     attributes: array<string, mixed>
+     * }>
+     */
+    private function normalizeTraceStack(mixed $traceStack): array
+    {
+        if (! is_array($traceStack)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($traceStack as $snapshot) {
+            if (! is_array($snapshot)) {
+                continue;
+            }
+
+            $traceId = $snapshot['trace_id'] ?? null;
+            $spanStack = $snapshot['span_stack'] ?? [];
+            $attributes = $snapshot['attributes'] ?? [];
+
+            $normalized[] = [
+                'trace_id' => is_string($traceId) ? $traceId : null,
+                'span_stack' => is_array($spanStack)
+                    ? array_values(array_filter($spanStack, is_string(...)))
+                    : [],
+                'attributes' => is_array($attributes) ? $attributes : [],
+            ];
+        }
+
+        return $normalized;
     }
 
     private function syncLaravelContext(): void

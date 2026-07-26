@@ -4,10 +4,14 @@ use Kanary\AiObservatory\AiObservatory;
 use Kanary\AiObservatory\Contracts\Recorder;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
+use Kanary\AiObservatory\Data\ThrowableData;
+use Kanary\AiObservatory\Data\TraceFinished;
 use Kanary\AiObservatory\Data\TraceStarted;
 use Kanary\AiObservatory\Enums\SpanStatus;
 use Kanary\AiObservatory\Enums\SpanType;
+use Kanary\AiObservatory\Enums\TraceStatus;
 use Kanary\AiObservatory\Models\Span;
+use Kanary\AiObservatory\Models\Trace;
 use Kanary\AiObservatory\Redaction\DefaultRedactor;
 use Kanary\AiObservatory\Redaction\RedactionManager;
 use Kanary\AiObservatory\Support\PayloadLimiter;
@@ -106,4 +110,61 @@ it('redacts and limits payloads before database persistence', function () {
         '_truncated' => true,
         '_original_bytes' => $span->request_payload['_original_bytes'],
     ]);
+});
+
+it('redacts metadata context and errors before database persistence', function () {
+    config()->set('ai-observatory.capture.stack_traces', false);
+    config()->set('ai-observatory.redaction.paths', ['error.message']);
+    app()->forgetInstance(Recorder::class);
+    app()->forgetInstance(RedactionManager::class);
+    app()->forgetInstance(DefaultRedactor::class);
+
+    AiObservatory::tag('api_key', 'context-secret');
+
+    $recorder = app(Recorder::class);
+    $traceId = '018f47a2-4f4e-7d10-9c2f-6f447d7a3011';
+    $spanId = '018f47a2-4f4e-7d10-9c2f-6f447d7a3012';
+    $now = now()->toImmutable();
+
+    $recorder->record(new TraceStarted(
+        $traceId,
+        $spanId,
+        'Private metadata',
+        $now,
+        ['authorization' => 'Bearer trace-secret'],
+    ));
+    $recorder->record(new SpanStarted(
+        $traceId,
+        $spanId,
+        null,
+        SpanType::Internal,
+        'Private span',
+        $now,
+        attributes: ['client_secret' => 'span-secret'],
+    ));
+    $recorder->record(new SpanFinished(
+        $traceId,
+        $spanId,
+        $now->addSecond(),
+        SpanStatus::Failed,
+        error: new ThrowableData(
+            RuntimeException::class,
+            'Error contained a credential',
+            'Sensitive stack trace',
+        ),
+    ));
+    $recorder->record(new TraceFinished(
+        $traceId,
+        $now->addSecond(),
+        TraceStatus::Failed,
+    ));
+
+    $trace = Trace::query()->sole();
+    $span = Span::query()->sole();
+
+    expect($trace->metadata['authorization'])->toBe('[REDACTED]')
+        ->and($trace->tags['api_key'])->toBe('[REDACTED]')
+        ->and($span->metadata['client_secret'])->toBe('[REDACTED]')
+        ->and($span->error_message)->toBe('[REDACTED]')
+        ->and($span->error_stack)->toBeNull();
 });

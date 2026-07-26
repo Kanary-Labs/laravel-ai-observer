@@ -202,6 +202,56 @@ it('stores and aggregates estimated model costs without double counting', functi
         ]);
 });
 
+it('aggregates usage and cost for standalone AI operation spans', function () {
+    configurePricing();
+
+    $recorder = app(Recorder::class);
+    $startedAt = now()->toImmutable();
+    $traceId = '018f47a2-4f4e-7d10-9c2f-6f447d7a4021';
+    $spanId = '018f47a2-4f4e-7d10-9c2f-6f447d7a4022';
+    $attributes = ['provider' => 'test-provider', 'model' => 'test-model'];
+
+    $recorder->record(new TraceStarted(
+        $traceId,
+        $spanId,
+        'Standalone embeddings',
+        $startedAt,
+        $attributes,
+    ));
+    $recorder->record(new SpanStarted(
+        $traceId,
+        $spanId,
+        null,
+        SpanType::Embedding,
+        'Standalone embeddings',
+        $startedAt,
+        attributes: $attributes,
+    ));
+    $recorder->record(new SpanFinished(
+        $traceId,
+        $spanId,
+        $startedAt->addSecond(),
+        SpanStatus::Successful,
+        usage: new TokenUsage(input: 1_000, output: 500, total: 1_500),
+        attributes: $attributes,
+    ));
+    $recorder->record(new TraceFinished(
+        $traceId,
+        $startedAt->addSecond(),
+        TraceStatus::Successful,
+    ));
+
+    $trace = Trace::query()->sole();
+    $span = Span::query()->sole();
+
+    expect($span->estimated_cost)->toBe('0.02000000')
+        ->and($trace->input_tokens)->toBe(1_000)
+        ->and($trace->output_tokens)->toBe(500)
+        ->and($trace->total_tokens)->toBe(1_500)
+        ->and($trace->estimated_cost)->toBe('0.02000000')
+        ->and($trace->currency)->toBe('USD');
+});
+
 function recordTrace(
     TraceStatus $status,
     ?CarbonImmutable $startedAt = null,

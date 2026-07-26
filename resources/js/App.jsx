@@ -372,6 +372,11 @@ export default function App({ className }) {
 
     useEffect(() => {
         const controller = new AbortController()
+
+        if (page !== 'traces' || detailMode === 'page') {
+            return () => controller.abort()
+        }
+
         const timeout = window.setTimeout(async () => {
             setListLoading(true)
             setListError(null)
@@ -395,7 +400,7 @@ export default function App({ className }) {
             window.clearTimeout(timeout)
             controller.abort()
         }
-    }, [config.apiBase, listQuery, refresh])
+    }, [config.apiBase, detailMode, listQuery, page, refresh])
 
     useEffect(() => {
         const controller = new AbortController()

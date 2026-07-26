@@ -59,6 +59,10 @@ it('lists traces with filters search and pagination without exposing payloads', 
         'provider' => 'openai',
         'model' => 'gpt-test',
         'agent_class' => 'App\\Ai\\SupportAgent',
+        'user_id' => 'user-42',
+        'user_type' => 'App\\Models\\User',
+        'tenant_id' => 'tenant-7',
+        'tenant_type' => 'App\\Models\\Organization',
         'feature' => 'ticket-reply',
         'duration_ms' => 1_250,
         'started_at' => now()->subMinute()->toImmutable(),
@@ -99,6 +103,13 @@ it('lists traces with filters search and pagination without exposing payloads', 
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.name', 'Sales summary');
+
+    $this->getJson('/ai-observatory/api/traces?user=user-42&tenant=tenant-7')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.trace_id', $failed)
+        ->assertJsonPath('data.0.user.id', 'user-42')
+        ->assertJsonPath('data.0.tenant.id', 'tenant-7');
 
     $this->getJson('/ai-observatory/api/traces?search=not-present-anywhere')
         ->assertOk()

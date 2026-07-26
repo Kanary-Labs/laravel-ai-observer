@@ -150,10 +150,15 @@ Add business context around dispatch or execution:
 ```php
 AiObservatory::withContext([
     'feature' => 'ticket-reply',
-    'organization_id' => $organization->getKey(),
-    'user_id' => auth()->id(),
+    'user' => auth()->user(),
+    'tenant' => $organization,
 ], fn () => SupportAgent::make()->prompt($message));
 ```
+
+You may also set correlation fields directly with
+`AiObservatory::user($user)`, `AiObservatory::tenant($organization)`, and
+`AiObservatory::feature('ticket-reply')`. Model identities are normalized into
+the indexed user and tenant columns used by dashboard filters.
 
 The middleware restores the context for the job and clears it afterward so
 long-lived workers do not leak correlation data.
@@ -273,6 +278,6 @@ setup, source-verification rules, and the required quality checks are in
 - Provider failover is recorded only to the extent exposed by official SDK
   events.
 - Interrupted streams require stale-trace recovery.
-- User and tenant correlation is currently supplied as context tags; dedicated
-  resolver callbacks are planned.
+- Automatic user, tenant, and feature resolver callbacks are planned; use the
+  context or direct correlation APIs today.
 - Prices are application-managed estimates and are never synchronized online.

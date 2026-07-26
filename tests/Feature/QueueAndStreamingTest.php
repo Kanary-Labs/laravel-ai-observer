@@ -175,6 +175,36 @@ it('persists a fake agent end to end through the sync queue connection', functio
         ->and(Span::query()->count())->toBe(2);
 });
 
+it('preserves redacted business context through deferred persistence modes', function (string $mode) {
+    config()->set('ai-observatory.recording_mode', $mode);
+    config()->set('ai-observatory.queue.connection', 'sync');
+    ToolCallingAgent::fake(['Context-aware response']);
+
+    AiObservatory::withContext([
+        'feature' => 'ticket-reply',
+        'user_id' => 'user-42',
+        'user_type' => 'App\\Models\\User',
+        'tenant_id' => 'tenant-7',
+        'tenant_type' => 'App\\Models\\Organization',
+        'api_key' => 'context-secret',
+    ], function (): void {
+        (new ToolCallingAgent)->prompt('Keep this context');
+    });
+
+    expect(Trace::query()->count())->toBe(0);
+
+    app(DeferredCallbackCollection::class)->invoke();
+
+    $trace = Trace::query()->sole();
+
+    expect($trace->feature)->toBe('ticket-reply')
+        ->and($trace->user_id)->toBe('user-42')
+        ->and($trace->user_type)->toBe('App\\Models\\User')
+        ->and($trace->tenant_id)->toBe('tenant-7')
+        ->and($trace->tenant_type)->toBe('App\\Models\\Organization')
+        ->and($trace->tags['api_key'])->toBe('[REDACTED]');
+})->with(['after_response', 'queue']);
+
 it('ignores malformed queued event data without failing the recording job', function () {
     $job = new PersistRecordedEvents([
         ['type' => 'span_finished', 'ended_at' => 'not-a-date'],
