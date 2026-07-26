@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-26
+
+### Changed
+
+- Promoted AI Observatory to its first stable release.
+- Defined the semantic-versioning commitment for documented public APIs,
+  extension contracts, configuration, commands, and stored trace schema.
+- Updated the security policy to support the latest `1.x` release.
+
+### Compatibility
+
+- Runtime behavior is unchanged from `0.1.0`.
+- Laravel AI SDK compatibility remains source verified and contract tested
+  against version 0.10.1.
+
 ## [0.1.0] - 2026-07-26
 
 ### Added
@@ -35,5 +50,6 @@ All notable changes to this project are documented here.
 - Dedicated user and tenant resolver callbacks are not included in this
   preview.
 
-[Unreleased]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Kanary-Labs/laravel-ai-observer/releases/tag/v1.0.0
 [0.1.0]: https://github.com/Kanary-Labs/laravel-ai-observer/releases/tag/v0.1.0

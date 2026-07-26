@@ -6,8 +6,9 @@ package for applications using the official Laravel AI SDK.
 > AI prompts and responses can contain sensitive information. Review capture
 > and redaction settings before enabling this package in production.
 
-The package is under active development. Version `0.1.0` is the first supported
-preview and should be evaluated carefully before production use.
+Version `1.0.0` is the first stable release. AI Observatory follows semantic
+versioning for its documented public APIs while keeping Laravel AI SDK
+compatibility isolated behind source-verified adapters.
 
 ## Requirements
 
@@ -15,6 +16,18 @@ preview and should be evaluated carefully before production use.
 - Laravel 12 or 13
 - `laravel/ai` 0.10.x
 - MySQL 8+, PostgreSQL 14+, or SQLite
+
+## Versioning and stability
+
+The documented facade methods, extension contracts, configuration keys,
+Artisan commands, and stored trace schema are covered by the `1.x` backwards
+compatibility commitment. Breaking changes to those surfaces require a new
+major release.
+
+The Laravel AI SDK remains pre-1.0. Adapter internals may change as the SDK
+evolves, but each supported SDK range is source verified and contract tested.
+Untested or unsupported SDK versions are reported explicitly by
+`ai-observatory:status`.
 
 ## Installation
 
