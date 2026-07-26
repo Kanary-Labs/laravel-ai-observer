@@ -19,6 +19,6 @@ The package is under active development and is not ready for production use.
 
 | Laravel AI SDK | Status | Adapter |
 | --- | --- | --- |
-| 0.10.1 | Source verified; implementation in progress | `LaravelAiSdkV010Adapter` |
+| 0.10.1 | Source verified and contract tested | `LaravelAiSdkV010Adapter` |
 
 See the [verified SDK event inventory](docs/sdk-events-v0.10.1.md).

@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::connection(config('ai-observatory.connection'))->create('ai_observatory_traces', function (Blueprint $table): void {
             $table->ulid('id')->primary();
-            $table->ulid('trace_id')->unique();
-            $table->ulid('root_span_id');
+            $table->uuid('trace_id')->unique();
+            $table->uuid('root_span_id');
             $table->string('name');
             $table->string('operation')->nullable();
             $table->string('status', 32);

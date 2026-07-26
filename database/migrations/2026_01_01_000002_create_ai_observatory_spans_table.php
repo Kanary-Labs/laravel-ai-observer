@@ -10,9 +10,9 @@ return new class extends Migration
     {
         Schema::connection(config('ai-observatory.connection'))->create('ai_observatory_spans', function (Blueprint $table): void {
             $table->ulid('id')->primary();
-            $table->ulid('trace_id');
-            $table->ulid('span_id');
-            $table->ulid('parent_span_id')->nullable();
+            $table->uuid('trace_id');
+            $table->uuid('span_id');
+            $table->uuid('parent_span_id')->nullable();
             $table->string('type', 32);
             $table->string('name');
             $table->string('status', 32);
