@@ -41,7 +41,7 @@ export function StatusBadge({ className, compact = false, status }) {
     return (
         <div
             className={clsx(
-                'inline-flex items-center gap-1.5 rounded-full py-1 pr-2 pl-1 text-base/6 font-medium ring-1 ring-inset sm:text-sm/5',
+                'inline-flex items-center gap-1.5 rounded-full py-1 pr-2 pl-1 text-base/6 font-medium ring-1 ring-inset sm:gap-1 sm:py-0.5 sm:pr-1.5 sm:pl-0.5 sm:text-sm/5',
                 styles[status] ?? styles.cancelled,
                 className,
             )}

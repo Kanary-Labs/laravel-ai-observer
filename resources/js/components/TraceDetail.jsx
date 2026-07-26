@@ -522,7 +522,7 @@ export function TraceDetail({
                         <div className="flex flex-wrap items-center gap-2">
                             <StatusBadge status={trace.status} />
                             {trace.feature ? (
-                                <div className="rounded-full bg-zinc-100 px-2 py-1 text-sm/5 font-medium text-zinc-600 ring-1 ring-zinc-950/5 ring-inset">
+                                <div className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-sm/5 font-medium text-zinc-600 ring-1 ring-zinc-950/5 ring-inset">
                                     {trace.feature}
                                 </div>
                             ) : null}

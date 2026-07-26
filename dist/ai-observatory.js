@@ -11477,7 +11477,7 @@ function ei({ className: f, compact: d = !1, status: v }) {
     "div",
     {
       className: yl(
-        "inline-flex items-center gap-1.5 rounded-full py-1 pr-2 pl-1 text-base/6 font-medium ring-1 ring-inset sm:text-sm/5",
+        "inline-flex items-center gap-1.5 rounded-full py-1 pr-2 pl-1 text-base/6 font-medium ring-1 ring-inset sm:gap-1 sm:py-0.5 sm:pr-1.5 sm:pl-0.5 sm:text-sm/5",
         Ld[v] ?? Ld.cancelled,
         f
       ),
@@ -11917,7 +11917,7 @@ function Dh({
             /* @__PURE__ */ c.jsxs("header", { className: "grid gap-3 border-b border-zinc-950/10 pb-5", children: [
               /* @__PURE__ */ c.jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
                 /* @__PURE__ */ c.jsx(ei, { status: A.status }),
-                A.feature ? /* @__PURE__ */ c.jsx("div", { className: "rounded-full bg-zinc-100 px-2 py-1 text-sm/5 font-medium text-zinc-600 ring-1 ring-zinc-950/5 ring-inset", children: A.feature }) : null
+                A.feature ? /* @__PURE__ */ c.jsx("div", { className: "rounded-full bg-zinc-100 px-1.5 py-0.5 text-sm/5 font-medium text-zinc-600 ring-1 ring-zinc-950/5 ring-inset", children: A.feature }) : null
               ] }),
               /* @__PURE__ */ c.jsxs("div", { className: "grid gap-2", children: [
                 /* @__PURE__ */ c.jsx(
