@@ -17,12 +17,18 @@ final class DashboardController
 
     public function __invoke(?string $traceId = null): View
     {
+        $assetPath = __DIR__.'/../../../dist/ai-observatory.js';
+        $assetVersion = is_file($assetPath)
+            ? substr((string) hash_file('sha256', $assetPath), 0, 12)
+            : 'missing';
+
         return $this->views->make('ai-observatory::app', [
             'observatory' => [
                 'apiBase' => route('ai-observatory.api.traces.index'),
                 'basePath' => '/'.trim((string) config('ai-observatory.path'), '/'),
                 'environment' => app()->environment(),
                 'recordingMode' => config('ai-observatory.recording_mode', 'sync'),
+                'assetVersion' => $assetVersion,
                 'initialTraceId' => $traceId,
             ],
         ]);

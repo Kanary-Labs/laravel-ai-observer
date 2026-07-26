@@ -37,8 +37,8 @@ it('serves the package-contained dashboard and compiled assets', function () {
         ->assertSee('"initialTraceId":"'.$traceId.'"', false)
         ->assertSee('"environment":"testing"', false)
         ->assertSee('"recordingMode":"sync"', false)
-        ->assertSee('/ai-observatory/assets/ai-observatory.css', false)
-        ->assertSee('/ai-observatory/assets/ai-observatory.js', false);
+        ->assertSee('/ai-observatory/assets/ai-observatory.css?v=', false)
+        ->assertSee('/ai-observatory/assets/ai-observatory.js?v=', false);
     $this->get('/ai-observatory/assets/ai-observatory.css')
         ->assertOk()
         ->assertHeader('Content-Type', 'text/css; charset=UTF-8');
