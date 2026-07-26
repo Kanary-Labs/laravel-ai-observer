@@ -7,8 +7,8 @@ class PayloadLimiter
     public function __construct(private readonly int $maxBytes) {}
 
     /**
-     * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
+     * @param  array<array-key, mixed>  $payload
+     * @return array<array-key, mixed>
      */
     public function limit(array $payload): array
     {

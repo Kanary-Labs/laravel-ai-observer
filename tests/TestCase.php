@@ -36,6 +36,7 @@ abstract class TestCase extends Orchestra
         $driver = env('AI_OBSERVATORY_TEST_DB', 'sqlite');
 
         $app['config']->set('database.default', 'testing');
+        $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('a', 32)));
         $app['config']->set('ai-observatory.enabled', true);
         $app['config']->set('ai-observatory.connection', 'testing');
         $app['config']->set('database.connections.testing', match ($driver) {

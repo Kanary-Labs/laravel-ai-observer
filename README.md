@@ -26,6 +26,25 @@ php artisan migrate
 The install command publishes one idempotent, ordered migration set. Re-running
 the command does not create duplicate migrations.
 
+## Trace dashboard
+
+Open `/ai-observatory/traces` to search and filter recorded AI operations. The
+trace list includes status, agent, provider/model, tool count, token usage,
+estimated cost, duration, user, tenant, and feature context.
+
+Trace details display an ordered parent-child timeline. Select a span to inspect
+its request, response, tool data, usage, metadata, and error information. Stored
+payloads are redacted and size-limited again before they are returned to the
+dashboard.
+
+The React dashboard and its compiled assets are served directly by the package;
+host applications do not need Node.js or an npm build step. Change the route
+prefix with:
+
+```dotenv
+AI_OBSERVATORY_PATH=ai-observatory
+```
+
 ## Production authorization
 
 Recording and dashboard access default to local environments. Production

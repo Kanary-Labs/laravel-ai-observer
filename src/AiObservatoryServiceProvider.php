@@ -25,12 +25,14 @@ use Kanary\AiObservatory\Contracts\CostCalculator;
 use Kanary\AiObservatory\Contracts\Recorder;
 use Kanary\AiObservatory\Contracts\Redactor;
 use Kanary\AiObservatory\Contracts\Sampler;
+use Kanary\AiObservatory\Contracts\TraceQueryRepository;
 use Kanary\AiObservatory\Contracts\TraceRepository;
 use Kanary\AiObservatory\Listeners\CaptureAiSdkEvent;
 use Kanary\AiObservatory\Pricing\ConfigCostCalculator;
 use Kanary\AiObservatory\Recording\RecordingPipeline;
 use Kanary\AiObservatory\Redaction\DefaultRedactor;
 use Kanary\AiObservatory\Redaction\RedactionManager;
+use Kanary\AiObservatory\Repositories\DatabaseTraceQueryRepository;
 use Kanary\AiObservatory\Repositories\DatabaseTraceRepository;
 use Kanary\AiObservatory\Sampling\ConfigSampler;
 use Kanary\AiObservatory\Sampling\SamplingRecorder;
@@ -66,6 +68,7 @@ class AiObservatoryServiceProvider extends ServiceProvider
         $this->app->singleton(CostCalculator::class, ConfigCostCalculator::class);
         $this->app->singleton(Sampler::class, ConfigSampler::class);
         $this->app->singleton(TraceRepository::class, DatabaseTraceRepository::class);
+        $this->app->singleton(TraceQueryRepository::class, DatabaseTraceQueryRepository::class);
         $this->app->singleton(DefaultRedactor::class, fn () => new DefaultRedactor(
             config('ai-observatory.redaction.keys', []),
             config('ai-observatory.redaction.paths', []),
@@ -82,6 +85,9 @@ class AiObservatoryServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'ai-observatory');
+        $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+
         if (! Gate::has('viewAiObservatory')) {
             Gate::define(
                 'viewAiObservatory',
