@@ -31,7 +31,10 @@ it('serves the package-contained dashboard and compiled assets', function () {
     $traceId = storeDashboardTrace();
 
     $this->get('/ai-observatory')
-        ->assertRedirect('/ai-observatory/traces');
+        ->assertRedirect('/ai-observatory/overview');
+    $this->get('/ai-observatory/overview')
+        ->assertOk()
+        ->assertSee('"overviewApi":"http:\/\/localhost\/ai-observatory\/api\/overview"', false);
     $this->get("/ai-observatory/traces/{$traceId}")
         ->assertOk()
         ->assertSee('"initialTraceId":"'.$traceId.'"', false)
@@ -107,6 +110,55 @@ it('lists traces with filters search and pagination without exposing payloads', 
         ->assertJsonPath('meta.total', 2)
         ->assertJsonPath('meta.last_page', 2)
         ->assertJsonCount(1, 'data');
+});
+
+it('reports overview metrics and ranked activity without exposing payloads', function () {
+    authorizeObservatory();
+
+    storeDashboardTrace([
+        'name' => 'Successful support run',
+        'provider' => 'openai',
+        'model' => 'gpt-test',
+        'agent_class' => 'App\\Ai\\SupportAgent',
+        'total_tokens' => 30,
+        'estimated_cost' => '0.00300000',
+        'currency' => 'USD',
+        'duration_ms' => 100,
+    ]);
+    $failed = storeDashboardTrace([
+        'name' => 'Failed support run',
+        'status' => 'failed',
+        'provider' => 'openai',
+        'model' => 'gpt-test',
+        'agent_class' => 'App\\Ai\\SupportAgent',
+        'total_tokens' => 20,
+        'estimated_cost' => '0.00200000',
+        'currency' => 'USD',
+        'duration_ms' => 1_200,
+    ], [
+        'type' => 'tool',
+        'name' => 'SearchOrders',
+        'error_message' => 'Order service unavailable',
+        'request_payload' => ['password' => 'plain-secret'],
+    ]);
+
+    $this->getJson('/ai-observatory/api/overview')
+        ->assertOk()
+        ->assertJsonPath('data.metrics.trace_count', 2)
+        ->assertJsonPath('data.metrics.failure_count', 1)
+        ->assertJsonPath('data.metrics.failure_rate', 50)
+        ->assertJsonPath('data.metrics.total_tokens', 50)
+        ->assertJsonPath('data.metrics.estimated_cost', '0.005')
+        ->assertJsonPath('data.metrics.currency', 'USD')
+        ->assertJsonPath('data.metrics.average_duration_ms', 650)
+        ->assertJsonPath('data.metrics.p95_duration_ms', 1200)
+        ->assertJsonPath('data.top_agents.0.name', 'App\\Ai\\SupportAgent')
+        ->assertJsonPath('data.top_agents.0.trace_count', 2)
+        ->assertJsonPath('data.top_models.0.name', 'gpt-test')
+        ->assertJsonPath('data.top_tools.0.name', 'SearchOrders')
+        ->assertJsonPath('data.top_tools.0.call_count', 1)
+        ->assertJsonPath('data.recent_failures.0.trace_id', $failed)
+        ->assertJsonMissing(['password' => 'plain-secret']);
 });
 
 it('returns a redacted trace detail with a correctly ordered span tree', function () {

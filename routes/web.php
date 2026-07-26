@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Kanary\AiObservatory\Http\Controllers\AssetController;
 use Kanary\AiObservatory\Http\Controllers\DashboardController;
+use Kanary\AiObservatory\Http\Controllers\OverviewController;
 use Kanary\AiObservatory\Http\Controllers\TraceController;
 use Kanary\AiObservatory\Http\Middleware\Authorize;
 
@@ -23,9 +24,13 @@ Route::prefix($path)
         Route::get('/api/traces/{traceId}', [TraceController::class, 'show'])
             ->whereUuid('traceId')
             ->name('api.traces.show');
+        Route::get('/api/overview', OverviewController::class)
+            ->name('api.overview');
 
         Route::get('/', [DashboardController::class, 'redirect'])
             ->name('home');
+        Route::get('/overview', DashboardController::class)
+            ->name('overview');
         Route::get('/traces/{traceId?}', DashboardController::class)
             ->whereUuid('traceId')
             ->name('traces');
