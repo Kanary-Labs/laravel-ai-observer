@@ -44,15 +44,17 @@ final class OverviewController
                         : 0.0,
                     'total_tokens' => $this->nullableIntegerSum($traces, 'total_tokens'),
                     'estimated_cost' => $currency !== null
-                        ? (string) (clone $traces)
-                            ->where('currency', $currency)
-                            ->sum('estimated_cost')
+                        ? $this->decimalString(
+                            (clone $traces)
+                                ->where('currency', $currency)
+                                ->sum('estimated_cost'),
+                        )
                         : null,
                     'currency' => $currency,
                     'average_duration_ms' => $durations['average'],
                     'p95_duration_ms' => $durations['p95'],
                 ],
-                'top_agents' => $this->topTraces($today, 'agent_class'),
+                'top_agents' => $this->topAgents($today),
                 'top_models' => $this->topModels($today),
                 'top_tools' => $this->topTools($today),
                 'recent_failures' => Trace::query()
@@ -81,6 +83,23 @@ final class OverviewController
                     ->all(),
             ],
         ]);
+    }
+
+    private function decimalString(mixed $value): ?string
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $normalized = (string) $value;
+
+        if (str_contains($normalized, '.')) {
+            $normalized = rtrim(rtrim($normalized, '0'), '.');
+        }
+
+        return $normalized === '' || $normalized === '-0'
+            ? '0'
+            : $normalized;
     }
 
     /** @param Builder<Trace> $query */
@@ -121,13 +140,13 @@ final class OverviewController
     /**
      * @return array<int, array<string, int|string|null>>
      */
-    private function topTraces(CarbonImmutable $today, string $column): array
+    private function topAgents(CarbonImmutable $today): array
     {
         return Trace::query()
             ->where('started_at', '>=', $today)
-            ->whereNotNull($column)
-            ->selectRaw("{$column} as name, COUNT(*) as trace_count, SUM(total_tokens) as total_tokens")
-            ->groupBy($column)
+            ->whereNotNull('agent_class')
+            ->selectRaw('agent_class as name, COUNT(*) as trace_count, SUM(total_tokens) as total_tokens')
+            ->groupBy('agent_class')
             ->orderByDesc('trace_count')
             ->limit(5)
             ->get()

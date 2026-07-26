@@ -232,9 +232,12 @@ class DatabaseRecorder implements Recorder
     /** @return Builder<Span> */
     private function usageSpans(Trace $trace): Builder
     {
-        $query = $this->newSpanQuery()->where('trace_id', $trace->trace_id);
+        $query = $this->newSpanQuery()->where(
+            'trace_id',
+            $trace->getAttribute('trace_id'),
+        );
 
-        if ($trace->agent_class !== null) {
+        if ($trace->getAttribute('agent_class') !== null) {
             return $query->where('type', SpanType::Model->value);
         }
 
