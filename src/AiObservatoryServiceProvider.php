@@ -21,13 +21,14 @@ use Kanary\AiObservatory\Listeners\CaptureAiSdkEvent;
 use Kanary\AiObservatory\Recording\RecordingPipeline;
 use Kanary\AiObservatory\Redaction\DefaultRedactor;
 use Kanary\AiObservatory\Redaction\RedactionManager;
+use Kanary\AiObservatory\Support\MigrationPublisher;
 use Kanary\AiObservatory\Support\PayloadLimiter;
 
 class AiObservatoryServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->mergeConfigFrom(
+        $this->replaceConfigRecursivelyFrom(
             __DIR__.'/../config/ai-observatory.php',
             'ai-observatory',
         );
@@ -63,8 +64,6 @@ class AiObservatoryServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
-
         if (config('ai-observatory.enabled')) {
             $this->app->make(Dispatcher::class)->listen('*', function (string $eventName, array $payload): void {
                 $event = $payload[0] ?? null;
@@ -80,9 +79,13 @@ class AiObservatoryServiceProvider extends ServiceProvider
                 __DIR__.'/../config/ai-observatory.php' => config_path('ai-observatory.php'),
             ], 'ai-observatory-config');
 
-            $this->publishesMigrations([
-                __DIR__.'/../database/migrations' => database_path('migrations'),
-            ], 'ai-observatory-migrations');
+            $this->publishesMigrations(
+                (new MigrationPublisher)->paths(
+                    __DIR__.'/../database/migrations',
+                    database_path('migrations'),
+                ),
+                'ai-observatory-migrations',
+            );
         }
     }
 }

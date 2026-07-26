@@ -4,13 +4,21 @@ namespace Kanary\AiObservatory\Tests;
 
 use Kanary\AiObservatory\AiObservatoryServiceProvider;
 use Laravel\Ai\AiServiceProvider;
+use Orchestra\Testbench\Concerns\InteractsWithPublishedFiles;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
+    use InteractsWithPublishedFiles;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->artisan('vendor:publish', [
+            '--tag' => 'ai-observatory-migrations',
+            '--force' => true,
+        ])->assertSuccessful();
 
         $this->artisan('migrate:fresh', ['--database' => 'testing'])->run();
     }
@@ -28,6 +36,7 @@ abstract class TestCase extends Orchestra
         $driver = env('AI_OBSERVATORY_TEST_DB', 'sqlite');
 
         $app['config']->set('database.default', 'testing');
+        $app['config']->set('ai-observatory.enabled', true);
         $app['config']->set('ai-observatory.connection', 'testing');
         $app['config']->set('database.connections.testing', match ($driver) {
             'mysql' => [

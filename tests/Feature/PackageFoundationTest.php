@@ -1,6 +1,8 @@
 <?php
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Schema;
+use Kanary\AiObservatory\Models\ObservatoryEvent;
 use Kanary\AiObservatory\Models\Span;
 use Kanary\AiObservatory\Models\Trace;
 
@@ -30,6 +32,26 @@ it('creates the portable trace and span schema', function () {
         ]))->toBeTrue();
 });
 
+it('publishes one idempotent migration set', function () {
+    $migrationPath = database_path('migrations');
+    $before = glob("{$migrationPath}/*_create_ai_observatory_*_table.php");
+
+    $this->artisan('vendor:publish', [
+        '--tag' => 'ai-observatory-migrations',
+        '--force' => true,
+    ])->assertSuccessful();
+
+    $after = glob("{$migrationPath}/*_create_ai_observatory_*_table.php");
+
+    expect($before)->toBeArray()->toHaveCount(3)
+        ->and($after)->toBe($before);
+});
+
+it('uses the configured connection for package models', function () {
+    expect((new Trace)->getConnectionName())->toBe('testing')
+        ->and((new Span)->getConnectionName())->toBe('testing');
+});
+
 it('relates traces to their spans by trace id', function () {
     $trace = Trace::query()->create([
         'trace_id' => '018f47a2-4f4e-7d10-9c2f-6f447d7a2001',
@@ -53,7 +75,7 @@ it('relates traces to their spans by trace id', function () {
         ->and($trace->spans->first()->trace->is($trace))->toBeTrue();
 });
 
-it('cascades span deletion when a trace is removed', function () {
+it('restricts trace deletion while spans still exist', function () {
     $trace = Trace::query()->create([
         'trace_id' => '018f47a2-4f4e-7d10-9c2f-6f447d7a2003',
         'root_span_id' => '018f47a2-4f4e-7d10-9c2f-6f447d7a2004',
@@ -72,7 +94,36 @@ it('cascades span deletion when a trace is removed', function () {
         'started_at' => now(),
     ]);
 
+    expect(fn () => $trace->delete())->toThrow(QueryException::class);
+
+    expect(Span::query()->where('trace_id', $trace->trace_id)->exists())->toBeTrue()
+        ->and(Trace::query()->where('trace_id', $trace->trace_id)->exists())->toBeTrue();
+
+    Span::query()->where('trace_id', $trace->trace_id)->delete();
     $trace->delete();
 
-    expect(Span::query()->where('trace_id', $trace->trace_id)->exists())->toBeFalse();
+    expect(Trace::query()->where('trace_id', $trace->trace_id)->exists())->toBeFalse();
+});
+
+it('restricts trace deletion while events still exist', function () {
+    $trace = Trace::query()->create([
+        'trace_id' => '018f47a2-4f4e-7d10-9c2f-6f447d7a2005',
+        'root_span_id' => '018f47a2-4f4e-7d10-9c2f-6f447d7a2006',
+        'name' => 'Trace with event',
+        'status' => 'running',
+        'started_at' => now(),
+    ]);
+
+    ObservatoryEvent::query()->create([
+        'trace_id' => $trace->trace_id,
+        'event_type' => 'stream_started',
+        'occurred_at' => now(),
+    ]);
+
+    expect(fn () => $trace->delete())->toThrow(QueryException::class);
+
+    ObservatoryEvent::query()->where('trace_id', $trace->trace_id)->delete();
+    $trace->delete();
+
+    expect(Trace::query()->where('trace_id', $trace->trace_id)->exists())->toBeFalse();
 });

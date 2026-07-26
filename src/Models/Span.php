@@ -4,7 +4,6 @@ namespace Kanary\AiObservatory\Models;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -12,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable|null $started_at
  * @property array<string, mixed>|null $metadata
  */
-class Span extends Model
+class Span extends ObservatoryModel
 {
     use HasUlids;
 

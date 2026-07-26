@@ -1,7 +1,14 @@
 <?php
 
 return [
-    'enabled' => env('AI_OBSERVATORY_ENABLED', true),
+    /*
+     * Recording is enabled automatically only for local applications. Set the
+     * environment variable explicitly before recording production traffic.
+     */
+    'enabled' => env(
+        'AI_OBSERVATORY_ENABLED',
+        env('APP_ENV', 'production') === 'local',
+    ),
 
     'debug' => env('AI_OBSERVATORY_DEBUG', false),
 

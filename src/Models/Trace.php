@@ -4,14 +4,13 @@ namespace Kanary\AiObservatory\Models;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property CarbonImmutable|null $started_at
  * @property array<string, mixed>|null $metadata
  */
-class Trace extends Model
+class Trace extends ObservatoryModel
 {
     use HasUlids;
 
