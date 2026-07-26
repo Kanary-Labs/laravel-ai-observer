@@ -6,8 +6,12 @@ redaction settings before enabling it in production.
 
 ## Supported versions
 
-Security fixes are provided for the latest tagged preview release. Until
-`1.0.0`, upgrading to the latest `0.x` release may be required to receive a fix.
+Security fixes are provided for the latest `1.x` release.
+
+| Version | Security support |
+| --- | --- |
+| `1.x` | Supported |
+| `0.x` | Not supported |
 
 ## Reporting a vulnerability
 
