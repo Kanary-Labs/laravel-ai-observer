@@ -28,14 +28,16 @@ AI_OBSERVATORY_RECORDING_MODE=sync
 
 ## Queue
 
-| Key                | Default         | Description                                       |
-| ------------------ | --------------- | ------------------------------------------------- |
-| `queue.connection` | Laravel default | Connection used for Observatory persistence jobs. |
-| `queue.name`       | `default`       | Queue name used for persistence jobs.             |
+| Key                       | Default         | Description                                                        |
+| ------------------------- | --------------- | ------------------------------------------------------------------ |
+| `queue.connection`        | Laravel default | Connection used for Observatory persistence jobs.                  |
+| `queue.name`              | `default`       | Queue name used for persistence jobs.                              |
+| `queue.max_payload_bytes` | `180000`        | Compressed-job safety threshold before deferred local persistence. |
 
 ```dotenv
 AI_OBSERVATORY_QUEUE_CONNECTION=redis
 AI_OBSERVATORY_QUEUE=observatory
+AI_OBSERVATORY_QUEUE_MAX_PAYLOAD_BYTES=180000
 ```
 
 ## Capture
@@ -65,6 +67,7 @@ AI_OBSERVATORY_QUEUE=observatory
 | `sampling.rate`                         | `1.0`   | Deterministic trace sampling rate from 0 to 1.                      |
 | `sampling.always_record_failures`       | `true`  | Promote failed and cancelled traces.                                |
 | `sampling.always_record_slow_traces_ms` | `10000` | Promote traces at or above the threshold; non-positive disables it. |
+| `sampling.max_buffered_events`          | `100`   | Maximum promotion buffer before the trace is recorded.              |
 
 Environment variables:
 
@@ -72,6 +75,7 @@ Environment variables:
 AI_OBSERVATORY_SAMPLE_RATE=1.0
 AI_OBSERVATORY_ALWAYS_RECORD_FAILURES=true
 AI_OBSERVATORY_ALWAYS_RECORD_SLOW_TRACES_MS=10000
+AI_OBSERVATORY_MAX_BUFFERED_EVENTS=100
 ```
 
 ## Maintenance
@@ -89,8 +93,8 @@ AI_OBSERVATORY_STALE_AFTER_MINUTES=15
 ## Pricing
 
 `pricing._meta` accepts `version` and `effective_date`. Provider entries contain
-model entries with input, output, cached-input rates per million tokens and a
-three-character currency.
+model entries with input, output, cached-input, and cache-write-input rates per
+million tokens plus a three-character currency.
 
 Unknown or invalid entries return no estimate.
 
@@ -98,3 +102,9 @@ Unknown or invalid entries return no estimate.
 
 `middleware` defaults to `['web']`. Add application middleware such as `auth`
 when required. The package authorization middleware is always appended.
+`api_middleware` defaults to `['throttle:120,1']`.
+
+Dashboard safety limits default to 1,000 spans, 1,000 lifecycle events, and 100
+distinct values per filter control. Configure them with
+`dashboard.max_spans_per_trace`, `dashboard.max_events_per_trace`, and
+`dashboard.max_filter_options`.

@@ -61,7 +61,7 @@ class ImageEventAdapter implements AiSdkEventAdapter
                     $now,
                     SpanStatus::Successful,
                     ['image_count' => $event->response->count()],
-                    $this->tokenUsage($event->response->usage),
+                    $this->tokenUsage($event->response->usage, $event->provider->name()),
                     attributes: [
                         'provider' => $event->provider->name(),
                         'model' => $event->model,

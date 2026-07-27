@@ -60,7 +60,10 @@ it('installs configuration and one migration set idempotently', function () {
     expect(config_path('ai-observatory.php'))->toBeFile()
         ->and(glob(database_path('migrations/*_create_ai_observatory_*_table.php')))
         ->toBeArray()
-        ->toHaveCount(3);
+        ->toHaveCount(3)
+        ->and(glob(database_path('migrations/*_upgrade_ai_observatory_*.php')))
+        ->toBeArray()
+        ->toHaveCount(1);
 });
 
 it('prunes expired traces child-first in bounded chunks', function () {
@@ -106,7 +109,7 @@ it('reports package installation and SDK compatibility status', function () {
     $this->artisan('ai-observatory:status')
         ->expectsOutputToContain('Installed')
         ->expectsOutputToContain('tested')
-        ->expectsOutputToContain('LaravelAiSdkV010Adapter')
+        ->expectsOutputToContain('Laravel AI SDK v0.10 adapter set')
         ->assertSuccessful();
 });
 

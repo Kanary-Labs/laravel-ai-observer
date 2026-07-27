@@ -24,30 +24,44 @@ final class ConfigCostCalculator implements CostCalculator
             ? ($providerPricing[$model] ?? null)
             : null;
 
-        if (! is_array($modelPricing) || $usage->input === null || $usage->output === null) {
+        if (
+            ! is_array($modelPricing)
+            || $usage->input === null
+            || ($usage->outputApplicable && $usage->output === null)
+        ) {
             return null;
         }
 
         $inputRate = $this->rate($modelPricing, 'input_per_million');
         $outputRate = $this->rate($modelPricing, 'output_per_million');
         $cachedInputRate = $this->rate($modelPricing, 'cached_input_per_million');
+        $cacheWriteInputRate = $this->rate($modelPricing, 'cache_write_input_per_million');
         $cachedInput = $usage->cachedInput ?? 0;
+        $cacheWriteInput = $usage->cacheWriteInput ?? 0;
+        $output = $usage->output ?? 0;
 
         if (
             $usage->input < 0
-            || $usage->output < 0
+            || $output < 0
             || $cachedInput < 0
-            || $cachedInput > $usage->input
+            || $cacheWriteInput < 0
+            || (
+                $usage->inputIncludesCached
+                && ($cachedInput + $cacheWriteInput) > $usage->input
+            )
         ) {
             return null;
         }
 
-        $uncachedInput = max(0, $usage->input - $cachedInput);
+        $uncachedInput = $usage->inputIncludesCached
+            ? $usage->input - $cachedInput - $cacheWriteInput
+            : $usage->input;
 
         if (
             $inputRate === null
-            || $outputRate === null
+            || ($usage->outputApplicable && $outputRate === null)
             || ($cachedInput > 0 && $cachedInputRate === null)
+            || ($cacheWriteInput > 0 && $cacheWriteInputRate === null)
         ) {
             return null;
         }
@@ -60,8 +74,9 @@ final class ConfigCostCalculator implements CostCalculator
 
         $amount = (
             ($uncachedInput * $inputRate)
-            + ($usage->output * $outputRate)
+            + ($output * ($outputRate ?? 0.0))
             + ($cachedInput * ($cachedInputRate ?? 0.0))
+            + ($cacheWriteInput * ($cacheWriteInputRate ?? 0.0))
         ) / 1_000_000;
         $metadata = is_array($pricing['_meta'] ?? null) ? $pricing['_meta'] : [];
 

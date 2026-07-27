@@ -265,7 +265,8 @@ class RecordingPipeline implements Recorder
      */
     private function process(string $root, array $payload): array
     {
-        $wrapped = $this->redactor->redact([$root => $payload]);
+        $normalized = $this->limiter->normalize([$root => $payload]);
+        $wrapped = $this->redactor->redact($normalized);
 
         if (! is_array($wrapped)) {
             return [];

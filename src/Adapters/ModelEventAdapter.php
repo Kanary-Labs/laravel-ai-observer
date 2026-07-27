@@ -94,7 +94,7 @@ class ModelEventAdapter implements AiSdkEventAdapter
                         $step->toolCalls,
                     ),
                 ],
-                usage: $this->tokenUsage($step->usage),
+                usage: $this->tokenUsage($step->usage, $provider),
                 attributes: [
                     'provider' => $provider,
                     'model' => $model,
@@ -111,25 +111,36 @@ class ModelEventAdapter implements AiSdkEventAdapter
     ): array {
         $streamStart = $response->events->whereInstanceOf(StreamStart::class)->first();
         $streamEnd = $response->events->whereInstanceOf(StreamEnd::class)->last();
+        $streamError = $response->events
+            ->whereInstanceOf(StreamError::class)
+            ->first(fn (StreamError $error): bool => ! $error->recoverable);
 
-        if (! $streamStart instanceof StreamStart || ! $streamEnd instanceof StreamEnd) {
+        if (
+            ! $streamStart instanceof StreamStart
+            || (
+                ! $streamEnd instanceof StreamEnd
+                && ! $streamError instanceof StreamError
+            )
+        ) {
             return [];
         }
 
         $spanId = (string) Str::uuid7();
         $firstToken = $response->events->whereInstanceOf(TextDelta::class)->first();
-        $streamError = $response->events
-            ->whereInstanceOf(StreamError::class)
-            ->first(fn (StreamError $error): bool => ! $error->recoverable);
         $startedAt = CarbonImmutable::createFromTimestamp($streamStart->timestamp);
-        $endedAt = CarbonImmutable::createFromTimestamp($streamEnd->timestamp);
+        $endedAt = CarbonImmutable::createFromTimestamp(
+            $streamEnd instanceof StreamEnd
+                ? $streamEnd->timestamp
+                : $streamError->timestamp,
+        );
         $firstTokenAt = $firstToken instanceof TextDelta
             ? CarbonImmutable::createFromTimestamp($firstToken->timestamp)
             : null;
         $timeToFirstToken = $firstTokenAt === null
             ? null
             : (int) round($startedAt->diffInMilliseconds($firstTokenAt, true));
-        $successful = $streamEnd->reason !== 'error'
+        $successful = $streamEnd instanceof StreamEnd
+            && $streamEnd->reason !== 'error'
             && ! $streamError instanceof StreamError;
         $error = $streamError instanceof StreamError
             ? new ThrowableData($streamError->type, $streamError->message)
@@ -180,9 +191,13 @@ class ModelEventAdapter implements AiSdkEventAdapter
                 status: $successful ? SpanStatus::Successful : SpanStatus::Failed,
                 response: [
                     'text' => $response->text,
-                    'finish_reason' => $streamEnd->reason,
+                    'finish_reason' => $streamEnd instanceof StreamEnd
+                        ? $streamEnd->reason
+                        : 'error',
                 ],
-                usage: $this->tokenUsage($response->usage),
+                usage: $streamEnd instanceof StreamEnd
+                    ? $this->tokenUsage($response->usage, $streamStart->provider)
+                    : null,
                 error: $error,
                 attributes: [
                     'provider' => $streamStart->provider,
@@ -197,7 +212,9 @@ class ModelEventAdapter implements AiSdkEventAdapter
                 eventType: 'response_completed',
                 occurredAt: $endedAt,
                 payload: [
-                    'finish_reason' => $streamEnd->reason,
+                    'finish_reason' => $streamEnd instanceof StreamEnd
+                        ? $streamEnd->reason
+                        : 'error',
                     'successful' => $successful,
                 ],
             ),

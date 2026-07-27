@@ -63,7 +63,7 @@ class TranscriptionEventAdapter implements AiSdkEventAdapter
                         'text' => $event->response->text,
                         'segments_count' => $event->response->segments->count(),
                     ],
-                    $this->tokenUsage($event->response->usage),
+                    $this->tokenUsage($event->response->usage, $event->provider->name()),
                     attributes: [
                         'provider' => $event->provider->name(),
                         'model' => $event->model,

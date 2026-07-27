@@ -37,6 +37,7 @@ function Primitive({ value }) {
 
 function Node({ label, value, depth = 0 }) {
     const structured = value !== null && typeof value === 'object'
+    const [open, setOpen] = useState(depth < 1)
 
     if (!structured) {
         return (
@@ -55,7 +56,11 @@ function Node({ label, value, depth = 0 }) {
     const kind = Array.isArray(value) ? 'array' : 'object'
 
     return (
-        <details className="group/json @container min-w-0" open={depth < 1}>
+        <details
+            className="group/json @container min-w-0"
+            open={open}
+            onToggle={(event) => setOpen(event.currentTarget.open)}
+        >
             <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1 rounded py-1 observatory-focus">
                 <ChevronRightIcon className="size-4 h-lh shrink-0 fill-zinc-400 group-open/json:rotate-90" />
                 {label !== null ? (
@@ -69,16 +74,18 @@ function Node({ label, value, depth = 0 }) {
                         : `{${entries.length}}`}
                 </div>
             </summary>
-            <div className="@container min-w-0 border-l border-zinc-950/10 pl-4">
-                {entries.map(([key, child]) => (
-                    <Node
-                        key={key}
-                        label={key}
-                        value={child}
-                        depth={depth + 1}
-                    />
-                ))}
-            </div>
+            {open ? (
+                <div className="@container min-w-0 border-l border-zinc-950/10 pl-4">
+                    {entries.map(([key, child]) => (
+                        <Node
+                            key={key}
+                            label={key}
+                            value={child}
+                            depth={depth + 1}
+                        />
+                    ))}
+                </div>
+            ) : null}
         </details>
     )
 }

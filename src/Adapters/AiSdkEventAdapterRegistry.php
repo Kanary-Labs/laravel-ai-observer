@@ -10,6 +10,9 @@ class AiSdkEventAdapterRegistry
     /** @var list<class-string<AiSdkEventAdapter>> */
     private array $adapterClasses;
 
+    /** @var array<class-string, list<class-string<AiSdkEventAdapter>>> */
+    private array $matches = [];
+
     /**
      * @param  list<class-string<AiSdkEventAdapter>>  $adapterClasses
      */
@@ -30,6 +33,7 @@ class AiSdkEventAdapterRegistry
 
         if (! in_array($adapterClass, $this->adapterClasses, true)) {
             $this->adapterClasses[] = $adapterClass;
+            $this->matches = [];
         }
     }
 
@@ -37,11 +41,26 @@ class AiSdkEventAdapterRegistry
     public function adapt(object $event): array
     {
         $adapted = [];
+        $eventClass = $event::class;
+
+        if (isset($this->matches[$eventClass])) {
+            foreach ($this->matches[$eventClass] as $adapterClass) {
+                array_push(
+                    $adapted,
+                    ...$this->container->make($adapterClass)->adapt($event),
+                );
+            }
+
+            return $adapted;
+        }
+
+        $this->matches[$eventClass] = [];
 
         foreach ($this->adapterClasses as $adapterClass) {
             $adapter = $this->container->make($adapterClass);
 
             if ($adapter->supports($event)) {
+                $this->matches[$eventClass][] = $adapterClass;
                 array_push($adapted, ...$adapter->adapt($event));
             }
         }

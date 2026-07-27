@@ -6,9 +6,9 @@ weight: 5
 AI Observatory isolates Laravel AI event mapping behind adapters because the
 SDK is pre-1.0.
 
-| Laravel AI SDK | Status                              | Adapter                   |
-| -------------- | ----------------------------------- | ------------------------- |
-| 0.10.1         | Source verified and contract tested | `LaravelAiSdkV010Adapter` |
+| Laravel AI SDK | Status                              | Adapter                          |
+| -------------- | ----------------------------------- | -------------------------------- |
+| 0.10.1         | Source verified and contract tested | Laravel AI SDK v0.10 adapter set |
 
 The current detector accepts the `0.10.x` range. A different SDK range is
 reported as `unsupported`, and no compatibility adapter is claimed.

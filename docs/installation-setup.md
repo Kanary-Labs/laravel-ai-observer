@@ -50,8 +50,9 @@ settings, retention, dashboard path, and authorization mode.
 
 ## Published migrations
 
-The install command publishes one migration for traces, one for spans, and one
-for events. Their timestamps are ordered so parent tables are created first.
+The install command publishes one migration for traces, one for spans, one for
+events, and an ordered compatibility upgrade migration. Their timestamps keep
+parent tables ahead of dependent tables and upgrades after the base schema.
 Running the install command again reuses existing matching migration files
 instead of creating duplicates.
 

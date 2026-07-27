@@ -196,6 +196,46 @@ it('clears trace context after a completed run', function () {
         ->and(app(TraceContext::class)->currentSpanId())->toBeNull();
 });
 
+it('recovers a tool completion whose SDK invocation id was clobbered by a nested agent', function () {
+    $recorder = app(Recorder::class);
+    $now = now()->toImmutable();
+    $traceId = '018f47a2-4f4e-7d10-9c2f-6f447d7a5201';
+    $rootSpanId = '018f47a2-4f4e-7d10-9c2f-6f447d7a5202';
+    $toolSpanId = '018f47a2-4f4e-7d10-9c2f-6f447d7a5203';
+
+    $recorder->record(new TraceStarted($traceId, $rootSpanId, 'Nested tool', $now));
+    $recorder->record(new SpanStarted(
+        $traceId,
+        $rootSpanId,
+        null,
+        SpanType::Agent,
+        'Parent agent',
+        $now,
+    ));
+    $recorder->record(new SpanStarted(
+        $traceId,
+        $toolSpanId,
+        $rootSpanId,
+        SpanType::Tool,
+        'DelegatedAgent',
+        $now,
+    ));
+    $recorder->record(new SpanFinished(
+        $traceId,
+        '018f47a2-4f4e-7d10-9c2f-6f447d7a5299',
+        $now->addSecond(),
+        SpanStatus::Successful,
+        response: ['result' => 'Completed'],
+        attributes: ['tool_name' => 'DelegatedAgent'],
+    ));
+
+    $tool = Span::query()->where('span_id', $toolSpanId)->sole();
+
+    expect($tool->status)->toBe('successful')
+        ->and($tool->response_payload)->toBe(['result' => 'Completed'])
+        ->and(app(TraceContext::class)->currentSpanId())->toBe($rootSpanId);
+});
+
 it('swallows recorder failures without changing SDK event behavior', function () {
     $recorder = Mockery::mock(Recorder::class);
     $recorder->allows('record')->andThrow(new RuntimeException('Database unavailable'));

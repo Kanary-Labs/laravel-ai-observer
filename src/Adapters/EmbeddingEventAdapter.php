@@ -63,7 +63,11 @@ class EmbeddingEventAdapter implements AiSdkEventAdapter
                         'embedding_count' => count($event->response->embeddings),
                         'vectors_recorded' => false,
                     ],
-                    new TokenUsage(input: $event->response->tokens, total: $event->response->tokens),
+                    new TokenUsage(
+                        input: $event->response->tokens,
+                        total: $event->response->tokens,
+                        outputApplicable: false,
+                    ),
                     attributes: [
                         'provider' => $event->provider->name(),
                         'model' => $event->model,

@@ -12,6 +12,7 @@ use Kanary\AiObservatory\Adapters\ProviderEventAdapter;
 use Kanary\AiObservatory\Adapters\RerankEventAdapter;
 use Kanary\AiObservatory\Adapters\ToolEventAdapter;
 use Kanary\AiObservatory\Adapters\TranscriptionEventAdapter;
+use Kanary\AiObservatory\Adapters\VectorStoreEventAdapter;
 use Kanary\AiObservatory\Data\EventRecorded;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
@@ -24,15 +25,23 @@ use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Files\TranscribableAudio;
 use Laravel\Ai\Contracts\Providers\AudioProvider;
 use Laravel\Ai\Contracts\Providers\EmbeddingProvider;
+use Laravel\Ai\Contracts\Providers\FileProvider;
 use Laravel\Ai\Contracts\Providers\ImageProvider;
 use Laravel\Ai\Contracts\Providers\RerankingProvider;
+use Laravel\Ai\Contracts\Providers\StoreProvider;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Contracts\Providers\TranscriptionProvider;
+use Laravel\Ai\Events\AddingFileToStore;
 use Laravel\Ai\Events\AgentFailedOver;
 use Laravel\Ai\Events\AgentPrompted;
 use Laravel\Ai\Events\AgentStreamed;
 use Laravel\Ai\Events\AudioGenerated;
+use Laravel\Ai\Events\CreatingStore;
 use Laravel\Ai\Events\EmbeddingsGenerated;
+use Laravel\Ai\Events\FileAddedToStore;
+use Laravel\Ai\Events\FileDeleted;
+use Laravel\Ai\Events\FileRemovedFromStore;
+use Laravel\Ai\Events\FileStored;
 use Laravel\Ai\Events\GeneratingAudio;
 use Laravel\Ai\Events\GeneratingEmbeddings;
 use Laravel\Ai\Events\GeneratingImage;
@@ -41,11 +50,16 @@ use Laravel\Ai\Events\ImageGenerated;
 use Laravel\Ai\Events\InvokingTool;
 use Laravel\Ai\Events\PromptingAgent;
 use Laravel\Ai\Events\ProviderFailedOver;
+use Laravel\Ai\Events\RemovingFileFromStore;
 use Laravel\Ai\Events\Reranked;
 use Laravel\Ai\Events\Reranking;
+use Laravel\Ai\Events\StoreCreated;
+use Laravel\Ai\Events\StoreDeleted;
+use Laravel\Ai\Events\StoringFile;
 use Laravel\Ai\Events\ToolInvoked;
 use Laravel\Ai\Events\TranscriptionGenerated;
 use Laravel\Ai\Exceptions\FailoverableException;
+use Laravel\Ai\Files\Document;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Prompts\AudioPrompt;
 use Laravel\Ai\Prompts\EmbeddingsPrompt;
@@ -60,12 +74,16 @@ use Laravel\Ai\Responses\Data\GeneratedImage;
 use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\Data\RankedDocument;
 use Laravel\Ai\Responses\Data\Step;
+use Laravel\Ai\Responses\Data\StoreFileCounts;
 use Laravel\Ai\Responses\Data\Usage;
 use Laravel\Ai\Responses\EmbeddingsResponse;
 use Laravel\Ai\Responses\ImageResponse;
 use Laravel\Ai\Responses\RerankingResponse;
+use Laravel\Ai\Responses\StoredFileResponse;
 use Laravel\Ai\Responses\StreamedAgentResponse;
 use Laravel\Ai\Responses\TranscriptionResponse;
+use Laravel\Ai\Store;
+use Laravel\Ai\Streaming\Events\Error as StreamError;
 use Laravel\Ai\Streaming\Events\StreamEnd;
 use Laravel\Ai\Streaming\Events\StreamStart;
 use Laravel\Ai\Streaming\Events\TextDelta;
@@ -184,7 +202,7 @@ it('reconstructs model spans from verified response steps without double countin
         ->and($adapted[1]->usage->output)->toBe(4)
         ->and($adapted[1]->usage->cachedInput)->toBe(2)
         ->and($adapted[1]->usage->reasoning)->toBe(1)
-        ->and($adapted[1]->usage->total)->toBe(14);
+        ->and($adapted[1]->usage->total)->toBe(16);
 });
 
 it('maps streaming model timing and usage from completed stream events', function () {
@@ -215,6 +233,38 @@ it('maps streaming model timing and usage from completed stream events', functio
         ->and($adapted[3]->endedAt->timestamp)->toBe(1_700_000_002)
         ->and($adapted[3]->usage->total)->toBe(11)
         ->and($adapted[4]->eventType)->toBe('response_completed');
+});
+
+it('maps a failed stream without requiring a terminal stream-end event', function () {
+    $events = collect([
+        (new StreamStart('start', 'openai', 'gpt-test', 1_700_000_000))
+            ->withInvocationId(INVOCATION_ID),
+        (new StreamError(
+            'error',
+            'provider_error',
+            'Provider failed',
+            false,
+            1_700_000_002,
+        ))->withInvocationId(INVOCATION_ID),
+    ]);
+    $response = new StreamedAgentResponse(
+        INVOCATION_ID,
+        $events,
+        new Meta('openai', 'gpt-test'),
+    );
+
+    $adapted = (new ModelEventAdapter)->adapt(
+        new AgentStreamed(INVOCATION_ID, agentPrompt(), $response),
+    );
+
+    expect($adapted)->toHaveCount(4)
+        ->and($adapted[0])->toBeInstanceOf(SpanStarted::class)
+        ->and($adapted[2])->toBeInstanceOf(SpanFinished::class)
+        ->and($adapted[2]->status->value)->toBe('failed')
+        ->and($adapted[2]->endedAt->timestamp)->toBe(1_700_000_002)
+        ->and($adapted[2]->usage)->toBeNull()
+        ->and($adapted[2]->error?->message)->toBe('Provider failed')
+        ->and($adapted[3]->payload['successful'])->toBeFalse();
 });
 
 it('maps tool start and completion using the SDK tool name resolver', function () {
@@ -270,7 +320,8 @@ it('maps embedding events without recording vectors', function () {
             'embedding_count' => 1,
             'vectors_recorded' => false,
         ])
-        ->and($finished[0]->usage->input)->toBe(7);
+        ->and($finished[0]->usage->input)->toBe(7)
+        ->and($finished[0]->usage->outputApplicable)->toBeFalse();
 });
 
 it('maps image events without recording generated binary data', function () {
@@ -394,6 +445,93 @@ it('maps reranking events to normalized arrays', function () {
         ]);
 });
 
+it('maps every verified file and vector-store event without file content', function () {
+    $provider = concreteProvider();
+    $file = Document::fromString('private document', 'text/plain')
+        ->as('orders.txt');
+    $storeProvider = Mockery::mock(FileProvider::class, StoreProvider::class);
+    $store = new Store(
+        $storeProvider,
+        'store-1',
+        'Orders',
+        new StoreFileCounts(1, 0, 0),
+        true,
+    );
+    $adapter = new VectorStoreEventAdapter;
+    $events = [
+        new StoringFile(INVOCATION_ID, $provider, $file),
+        new FileStored(
+            INVOCATION_ID,
+            $provider,
+            $file,
+            new StoredFileResponse('file-1'),
+        ),
+        new CreatingStore(
+            INVOCATION_ID,
+            $provider,
+            'Orders',
+            'Order documents',
+            collect(['file-1']),
+            new DateInterval('P1D'),
+        ),
+        new StoreCreated(
+            INVOCATION_ID,
+            $provider,
+            'Orders',
+            'Order documents',
+            collect(['file-1']),
+            new DateInterval('P1D'),
+            $store,
+        ),
+        new AddingFileToStore(
+            INVOCATION_ID,
+            $provider,
+            'store-1',
+            'file-1',
+        ),
+        new FileAddedToStore(
+            INVOCATION_ID,
+            $provider,
+            'store-1',
+            'file-1',
+            'document-1',
+        ),
+        new RemovingFileFromStore(
+            INVOCATION_ID,
+            $provider,
+            'store-1',
+            'document-1',
+        ),
+        new FileRemovedFromStore(
+            INVOCATION_ID,
+            $provider,
+            'store-1',
+            'document-1',
+        ),
+        new FileDeleted(INVOCATION_ID, $provider, 'file-1'),
+        new StoreDeleted(INVOCATION_ID, $provider, 'store-1'),
+    ];
+
+    foreach ($events as $event) {
+        expect($adapter->supports($event))->toBeTrue()
+            ->and($adapter->adapt($event))->not->toBeEmpty();
+    }
+
+    $started = $adapter->adapt($events[0]);
+    $deleted = $adapter->adapt($events[8]);
+
+    expect($started[1])->toBeInstanceOf(SpanStarted::class)
+        ->and($started[1]->type)->toBe(SpanType::VectorStore)
+        ->and($started[1]->request['file'])->toBe([
+            'type' => $file::class,
+            'name' => 'orders.txt',
+            'mime_type' => 'text/plain',
+        ])
+        ->and(json_encode($started))->not->toContain('private document')
+        ->and($deleted)->toHaveCount(4)
+        ->and($deleted[3])->toBeInstanceOf(TraceFinished::class);
+});
+
 it('registers concept adapters and ignores unknown events safely', function () {
     $registry = app(AiSdkEventAdapterRegistry::class);
 
@@ -407,6 +545,7 @@ it('registers concept adapters and ignores unknown events safely', function () {
         AudioEventAdapter::class,
         TranscriptionEventAdapter::class,
         RerankEventAdapter::class,
+        VectorStoreEventAdapter::class,
     )->and($registry->adapt(new stdClass))->toBe([]);
 });
 
@@ -438,5 +577,7 @@ it('reports the installed sdk compatibility baseline', function () {
 
     expect($compatibility->version)->toStartWith('v0.10.1')
         ->and($compatibility->status())->toBe('tested')
-        ->and($compatibility->adapter())->toBe('LaravelAiSdkV010Adapter');
+        ->and($compatibility->adapter())->toBe(
+            'Laravel AI SDK v0.10 adapter set',
+        );
 });

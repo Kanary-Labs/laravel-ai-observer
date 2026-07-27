@@ -74,7 +74,9 @@ final class DatabaseTraceQueryRepository implements TraceQueryRepository
                 'per_page' => $perPage,
                 'total' => $total,
                 'last_page' => max(1, (int) ceil($total / $perPage)),
-                'filter_options' => $this->filterOptions(),
+                'filter_options' => ($filters['include_filter_options'] ?? true)
+                    ? $this->filterOptions()
+                    : null,
             ],
         ];
     }
@@ -96,17 +98,30 @@ final class DatabaseTraceQueryRepository implements TraceQueryRepository
             return null;
         }
 
+        $maxSpans = max(
+            1,
+            (int) config('ai-observatory.dashboard.max_spans_per_trace', 1_000),
+        );
+        $maxEvents = max(
+            1,
+            (int) config('ai-observatory.dashboard.max_events_per_trace', 1_000),
+        );
         $spans = Span::query()
             ->where('trace_id', $traceId)
             ->orderBy('sequence')
+            ->limit($maxSpans)
             ->get()
             ->map(fn (Span $span): array => $this->spanDetail($span))
             ->values();
-        $events = ObservatoryEvent::query()
+        $eventRows = ObservatoryEvent::query()
             ->where('trace_id', $traceId)
             ->orderBy('occurred_at')
             ->orderBy('id')
-            ->get()
+            ->limit($maxEvents + 1)
+            ->get();
+        $eventsTruncated = $eventRows->count() > $maxEvents;
+        $events = $eventRows
+            ->take($maxEvents)
             ->map(fn (ObservatoryEvent $event): array => [
                 'id' => $event->getAttribute('id'),
                 'span_id' => $event->getAttribute('span_id'),
@@ -124,11 +139,19 @@ final class DatabaseTraceQueryRepository implements TraceQueryRepository
                 'root_span_id' => $trace->getAttribute('root_span_id'),
                 'environment' => $trace->getAttribute('environment'),
                 'cached_input_tokens' => $trace->getAttribute('cached_input_tokens'),
+                'cache_write_input_tokens' => $trace->getAttribute('cache_write_input_tokens'),
                 'reasoning_tokens' => $trace->getAttribute('reasoning_tokens'),
                 'metadata' => $this->payload($trace->getAttribute('metadata')),
                 'tags' => $this->payload($trace->getAttribute('tags')),
                 'spans' => $this->spanTree($spans),
                 'events' => $events,
+                'detail_limits' => [
+                    'spans_truncated' => (int) $trace->getAttribute('spans_count')
+                        > $spans->count(),
+                    'events_truncated' => $eventsTruncated,
+                    'max_spans' => $maxSpans,
+                    'max_events' => $maxEvents,
+                ],
             ],
         ];
     }
@@ -275,22 +298,32 @@ final class DatabaseTraceQueryRepository implements TraceQueryRepository
 
     private function usesMysql(): bool
     {
-        return DB::connection(config('ai-observatory.connection'))->getDriverName() === 'mysql';
+        return in_array(
+            DB::connection(config('ai-observatory.connection'))->getDriverName(),
+            ['mysql', 'mariadb'],
+            true,
+        );
     }
 
     /** @return array<string, list<string>> */
     private function filterOptions(): array
     {
+        $limit = max(
+            1,
+            (int) config('ai-observatory.dashboard.max_filter_options', 100),
+        );
+
         return [
-            'statuses' => $this->distinctTraceValues('status'),
-            'providers' => $this->distinctTraceValues('provider'),
-            'models' => $this->distinctTraceValues('model'),
-            'agents' => $this->distinctTraceValues('agent_class'),
-            'features' => $this->distinctTraceValues('feature'),
+            'statuses' => $this->distinctTraceValues('status', $limit),
+            'providers' => $this->distinctTraceValues('provider', $limit),
+            'models' => $this->distinctTraceValues('model', $limit),
+            'agents' => $this->distinctTraceValues('agent_class', $limit),
+            'features' => $this->distinctTraceValues('feature', $limit),
             'span_types' => array_values(Span::query()
                 ->whereNotNull('type')
                 ->distinct()
                 ->orderBy('type')
+                ->limit($limit)
                 ->pluck('type')
                 ->map(fn (mixed $value): string => (string) $value)
                 ->values()
@@ -299,13 +332,14 @@ final class DatabaseTraceQueryRepository implements TraceQueryRepository
     }
 
     /** @return list<string> */
-    private function distinctTraceValues(string $column): array
+    private function distinctTraceValues(string $column, int $limit): array
     {
         return array_values(Trace::query()
             ->whereNotNull($column)
             ->where($column, '!=', '')
             ->distinct()
             ->orderBy($column)
+            ->limit($limit)
             ->pluck($column)
             ->map(fn (mixed $value): string => (string) $value)
             ->values()
@@ -372,6 +406,7 @@ final class DatabaseTraceQueryRepository implements TraceQueryRepository
             'input_tokens' => $span->getAttribute('input_tokens'),
             'output_tokens' => $span->getAttribute('output_tokens'),
             'cached_input_tokens' => $span->getAttribute('cached_input_tokens'),
+            'cache_write_input_tokens' => $span->getAttribute('cache_write_input_tokens'),
             'reasoning_tokens' => $span->getAttribute('reasoning_tokens'),
             'total_tokens' => $span->getAttribute('total_tokens'),
             'estimated_cost' => $span->getAttribute('estimated_cost'),
@@ -395,29 +430,80 @@ final class DatabaseTraceQueryRepository implements TraceQueryRepository
      */
     private function spanTree(Collection $spans): array
     {
-        $spanIds = $spans
-            ->pluck('span_id')
-            ->filter(fn (mixed $spanId): bool => is_string($spanId))
-            ->all();
-        $roots = $spans->filter(
-            fn (array $span): bool => ! is_string($span['parent_span_id'])
-                || ! in_array($span['parent_span_id'], $spanIds, true),
-        );
+        /** @var array<string, array<string, mixed>> $byId */
+        $byId = [];
+        /** @var array<string, list<string>> $children */
+        $children = [];
+        /** @var list<string> $order */
+        $order = [];
 
-        $build = function (array $span) use (&$build, $spans): array {
-            $span['children'] = $spans
-                ->filter(fn (array $child): bool => $child['parent_span_id'] === $span['span_id'])
-                ->map(fn (array $child): array => $build($child))
-                ->values()
-                ->all();
+        foreach ($spans as $span) {
+            $spanId = $span['span_id'] ?? null;
+
+            if (! is_string($spanId) || isset($byId[$spanId])) {
+                continue;
+            }
+
+            $byId[$spanId] = $span;
+            $children[$spanId] = [];
+            $order[] = $spanId;
+        }
+
+        $roots = [];
+
+        foreach ($order as $spanId) {
+            $parentId = $byId[$spanId]['parent_span_id'] ?? null;
+
+            if (
+                is_string($parentId)
+                && $parentId !== $spanId
+                && isset($byId[$parentId])
+            ) {
+                $children[$parentId][] = $spanId;
+            } else {
+                $roots[] = $spanId;
+            }
+        }
+
+        /** @var array<string, true> $visited */
+        $visited = [];
+        $build = function (string $spanId, array $ancestors = []) use (
+            &$build,
+            &$visited,
+            $byId,
+            $children,
+        ): ?array {
+            if (isset($ancestors[$spanId])) {
+                return null;
+            }
+
+            $visited[$spanId] = true;
+            $ancestors[$spanId] = true;
+            $span = $byId[$spanId];
+            $span['children'] = array_values(array_filter(array_map(
+                fn (string $childId): ?array => $build($childId, $ancestors),
+                $children[$spanId],
+            )));
 
             return $span;
         };
 
-        return array_values($roots
-            ->map(fn (array $span): array => $build($span))
-            ->values()
-            ->all());
+        $tree = array_values(array_filter(array_map(
+            fn (string $spanId): ?array => $build($spanId),
+            $roots,
+        )));
+
+        foreach ($order as $spanId) {
+            if (! isset($visited[$spanId])) {
+                $orphanedCycle = $build($spanId);
+
+                if ($orphanedCycle !== null) {
+                    $tree[] = $orphanedCycle;
+                }
+            }
+        }
+
+        return $tree;
     }
 
     /** @return array<array-key, mixed>|string|null */

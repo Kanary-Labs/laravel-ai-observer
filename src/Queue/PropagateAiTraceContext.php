@@ -12,6 +12,7 @@ final class PropagateAiTraceContext
     {
         $context = app(TraceContext::class);
         $snapshot = Context::getHidden(TraceContext::LARAVEL_CONTEXT_KEY);
+        $before = $context->snapshot();
         $context->clear();
 
         if (is_array($snapshot)) {
@@ -21,7 +22,7 @@ final class PropagateAiTraceContext
         try {
             return $next($job);
         } finally {
-            $context->clear();
+            $context->restore($before);
         }
     }
 }

@@ -15,6 +15,7 @@ use Kanary\AiObservatory\Adapters\ProviderEventAdapter;
 use Kanary\AiObservatory\Adapters\RerankEventAdapter;
 use Kanary\AiObservatory\Adapters\ToolEventAdapter;
 use Kanary\AiObservatory\Adapters\TranscriptionEventAdapter;
+use Kanary\AiObservatory\Adapters\VectorStoreEventAdapter;
 use Kanary\AiObservatory\Authorization\Authorization;
 use Kanary\AiObservatory\Console\ClearCommand;
 use Kanary\AiObservatory\Console\InstallCommand;
@@ -63,6 +64,7 @@ class AiObservatoryServiceProvider extends ServiceProvider
                 AudioEventAdapter::class,
                 TranscriptionEventAdapter::class,
                 RerankEventAdapter::class,
+                VectorStoreEventAdapter::class,
             ],
         ));
 
@@ -101,11 +103,27 @@ class AiObservatoryServiceProvider extends ServiceProvider
         }
 
         if (config('ai-observatory.enabled')) {
-            $this->app->make(Dispatcher::class)->listen('*', function (string $eventName, array $payload): void {
+            $this->app->make(Dispatcher::class)->listen('Laravel\\Ai\\Events\\*', static function (string $eventName, array $payload): void {
                 $event = $payload[0] ?? null;
 
                 if (is_object($event)) {
-                    $this->app->make(CaptureAiSdkEvent::class)->handle($event);
+                    app(CaptureAiSdkEvent::class)->handle($event);
+                }
+            });
+
+            $this->app->terminating(static function (): void {
+                $app = app();
+
+                if ($app->resolved(PersistenceRecorder::class)) {
+                    $app->make(PersistenceRecorder::class)->flush();
+                }
+
+                if ($app->resolved(TraceContext::class)) {
+                    $app->make(TraceContext::class)->clear();
+                }
+
+                if ($app->resolved(SamplingRecorder::class)) {
+                    $app->make(SamplingRecorder::class)->reset();
                 }
             });
         }

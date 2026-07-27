@@ -22,6 +22,7 @@ final class SamplingRecorder implements Recorder
      *     buffer: bool,
      *     always_record_failures: bool,
      *     slow_threshold_ms: int|null,
+     *     max_buffered_events: int,
      *     events: list<object>
      * }>
      */
@@ -54,7 +55,18 @@ final class SamplingRecorder implements Recorder
         if ($state['sampled']) {
             $this->recorder->record($event);
         } elseif ($state['buffer']) {
-            $state['events'][] = $event;
+            if (count($state['events']) >= $state['max_buffered_events']) {
+                foreach ($state['events'] as $bufferedEvent) {
+                    $this->recorder->record($bufferedEvent);
+                }
+
+                $state['sampled'] = true;
+                $state['buffer'] = false;
+                $state['events'] = [];
+                $this->recorder->record($event);
+            } else {
+                $state['events'][] = $event;
+            }
         }
 
         if ($event instanceof TraceFinished) {
@@ -67,6 +79,12 @@ final class SamplingRecorder implements Recorder
             unset($state, $this->traces[$traceId]);
             $this->finish($traceId);
         }
+    }
+
+    public function reset(): void
+    {
+        $this->traces = [];
+        $this->activeTraces = [];
     }
 
     private function start(TraceStarted $event): void
@@ -88,6 +106,10 @@ final class SamplingRecorder implements Recorder
             ? (int) $slowThreshold
             : null;
         $buffer = ! $sampled && ($alwaysRecordFailures || $slowThreshold !== null);
+        $maxBufferedEvents = max(
+            1,
+            (int) config('ai-observatory.sampling.max_buffered_events', 100),
+        );
 
         $this->traces[$event->traceId] = [
             'sampled' => $sampled,
@@ -95,6 +117,7 @@ final class SamplingRecorder implements Recorder
             'buffer' => $buffer,
             'always_record_failures' => $alwaysRecordFailures,
             'slow_threshold_ms' => $slowThreshold,
+            'max_buffered_events' => $maxBufferedEvents,
             'events' => $buffer ? [$event] : [],
         ];
         $this->activeTraces[] = $event->traceId;
@@ -111,6 +134,7 @@ final class SamplingRecorder implements Recorder
      *     buffer: bool,
      *     always_record_failures: bool,
      *     slow_threshold_ms: int|null,
+     *     max_buffered_events: int,
      *     events: list<object>
      * }  $state
      */
