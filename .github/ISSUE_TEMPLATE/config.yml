@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+    - name: Documentation
+      url: https://kanarylabs.com/docs/laravel-ai-observatory/
+      about: Read the installation, configuration, privacy, and troubleshooting guides.
+    - name: Questions and support
+      url: https://kanarylabs.com/docs/laravel-ai-observatory/questions-issues/
+      about: Review support guidance before opening an issue.
+    - name: Report a security vulnerability
+      url: https://github.com/Kanary-Labs/laravel-ai-observer/security/policy
+      about: Follow the security policy. Do not disclose sensitive details in an issue.

@@ -1,0 +1,5 @@
+# Default ownership keeps maintainer review visible on every pull request.
+* @aymanatmeh
+
+# Protect contribution policy and automation changes explicitly.
+/.github/ @aymanatmeh
