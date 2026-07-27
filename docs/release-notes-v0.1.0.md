@@ -1,4 +1,7 @@
-# AI Observatory 0.1.0
+---
+title: AI Observatory 0.1.0 release notes
+navigation: false
+---
 
 The first preview delivers local trace debugging for applications using
 Laravel AI SDK 0.10.1. It records correlated agent, model, tool, media, and
@@ -14,4 +17,4 @@ queue behavior, and retention against your production requirements. Prompts,
 responses, and tool payloads may contain sensitive information.
 
 See the [changelog](../CHANGELOG.md), [security policy](../SECURITY.md), and
-[compatibility inventory](sdk-events-v0.10.1.md).
+[compatibility inventory](reference/sdk-events-v0.10.1.md).

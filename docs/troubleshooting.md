@@ -1,10 +1,16 @@
-# Troubleshooting
+---
+title: Troubleshooting
+weight: 7
+---
 
 ## No traces appear
 
 Run `php artisan ai-observatory:status`. Confirm recording is enabled, the SDK
 version is supported, migrations exist, and the selected database connection is
 reachable. In production, `AI_OBSERVATORY_ENABLED=true` is required explicitly.
+
+Confirm the application is using an SDK operation covered by the current
+compatibility adapter. Unknown events are ignored safely.
 
 ## Dashboard returns 403
 
@@ -19,11 +25,20 @@ job contains normalized internal DTO arrays, so changing SDK objects after
 dispatch cannot repair an already queued event. Temporarily use `sync` mode and
 enable `AI_OBSERVATORY_DEBUG=true` to isolate dispatch from persistence errors.
 
+```dotenv
+AI_OBSERVATORY_RECORDING_MODE=sync
+AI_OBSERVATORY_DEBUG=true
+```
+
 ## A streaming trace stays running
 
 The SDK cannot emit its completion event after some interrupted connections.
 Run `php artisan ai-observatory:recover-stale --minutes=30` and schedule the
 command at an interval appropriate for the application.
+
+Agent and tool exceptions can have the same effect because Laravel AI SDK
+0.10.1 does not dispatch a dedicated terminal failure event for every started
+agent or tool operation.
 
 ## Migration or foreign-key errors
 
@@ -43,3 +58,17 @@ truncated source content is intentionally unrecoverable from Observatory.
 Unknown prices are never treated as zero. Add a matching provider/model entry
 with all required token categories. Trace cost also remains null when model
 spans use incompatible currencies or any constituent model span is unpriced.
+
+## A trace has zero-duration model spans
+
+For non-streamed agents, Laravel AI exposes individual model steps only when the
+agent response completes. AI Observatory reconstructs those spans at completion
+and marks their timing metadata as `reconstructed_at_completion`. This is an SDK
+event limitation, not a database timing error.
+
+## Debug logging
+
+Set `AI_OBSERVATORY_DEBUG=true` temporarily to log adapter, dispatch, and
+persistence failures. Recorder failures remain isolated from the application's
+AI response. Disable debug logging after diagnosis to avoid unnecessary log
+volume.
