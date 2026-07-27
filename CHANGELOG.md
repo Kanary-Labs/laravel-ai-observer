@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Added package-owned documentation with renderer-friendly navigation metadata.
+- Restricted Tailwind content discovery to dashboard source files so
+  documentation cannot affect generated dashboard assets.
+
 ## [1.0.0] - 2026-07-26
 
 ### Changed

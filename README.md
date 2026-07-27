@@ -29,6 +29,13 @@ evolves, but each supported SDK range is source verified and contract tested.
 Untested or unsupported SDK versions are reported explicitly by
 `ai-observatory:status`.
 
+## Documentation
+
+Start with the package-owned [documentation](docs/introduction.md). It covers
+installation, basic usage, trace concepts, privacy, recording modes, dashboard
+workflows, advanced extensions, and complete configuration and command
+references.
+
 ## Installation
 
 ```bash
@@ -264,11 +271,12 @@ transactions. Foreign keys restrict accidental parent deletion.
 
 ## SDK compatibility
 
-| Laravel AI SDK | Status | Adapter |
-| --- | --- | --- |
-| 0.10.1 | Source verified and contract tested | `LaravelAiSdkV010Adapter` |
+| Laravel AI SDK | Status                              | Adapter                   |
+| -------------- | ----------------------------------- | ------------------------- |
+| 0.10.1         | Source verified and contract tested | `LaravelAiSdkV010Adapter` |
 
-See the [verified SDK event inventory](docs/sdk-events-v0.10.1.md).
+See the
+[verified SDK event inventory](docs/reference/sdk-events-v0.10.1.md).
 
 An SDK version outside the tested range is reported as untested or unsupported
 by `ai-observatory:status`; it is never silently presented as compatible.
@@ -284,6 +292,10 @@ Report vulnerabilities according to [SECURITY.md](SECURITY.md). Development
 setup, source-verification rules, and the required quality checks are in
 [CONTRIBUTING.md](CONTRIBUTING.md). Release changes are tracked in
 [CHANGELOG.md](CHANGELOG.md).
+
+## Acknowledgments
+
+Documentation inspired by [Spatie](https://spatie.be/docs).
 
 ## Current limitations
 

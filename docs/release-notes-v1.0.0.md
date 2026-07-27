@@ -1,4 +1,7 @@
-# AI Observatory 1.0.0
+---
+title: AI Observatory 1.0.0 release notes
+navigation: false
+---
 
 AI Observatory 1.0.0 is the first stable release of the local observability and
 debugging package for applications using the official Laravel AI SDK.
@@ -23,4 +26,4 @@ Review capture settings, redaction, authorization, database capacity, queue
 behavior, and retention before enabling the package in production.
 
 See the [changelog](../CHANGELOG.md), [security policy](../SECURITY.md), and
-[compatibility inventory](sdk-events-v0.10.1.md).
+[compatibility inventory](reference/sdk-events-v0.10.1.md).
