@@ -11,6 +11,7 @@ final class MigrationPublisher
         'create_ai_observatory_traces_table',
         'create_ai_observatory_spans_table',
         'create_ai_observatory_events_table',
+        'upgrade_ai_observatory_usage_and_errors',
     ];
 
     /**

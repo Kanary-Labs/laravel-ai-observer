@@ -92,10 +92,27 @@ final class PersistenceRecorder implements Recorder
                 return;
             }
 
+            $job = new PersistRecordedEvents($payloads);
+            $maxPayloadBytes = max(
+                1,
+                (int) config(
+                    'ai-observatory.queue.max_payload_bytes',
+                    180_000,
+                ),
+            );
+
+            if ($job->payloadBytes() > $maxPayloadBytes) {
+                foreach ($events as $event) {
+                    $this->recorder->record($event);
+                }
+
+                return;
+            }
+
             $this->queues
                 ->connection(config('ai-observatory.queue.connection'))
                 ->push(
-                    new PersistRecordedEvents($payloads),
+                    $job,
                     queue: (string) config('ai-observatory.queue.name', 'default'),
                 );
         } catch (Throwable $throwable) {

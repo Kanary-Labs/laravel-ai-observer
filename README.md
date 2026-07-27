@@ -124,6 +124,7 @@ Prices are configured locally and are never fetched automatically:
             'input_per_million' => 10,
             'output_per_million' => 30,
             'cached_input_per_million' => 1,
+            'cache_write_input_per_million' => 12.5,
             'currency' => 'USD',
         ],
     ],
@@ -148,8 +149,9 @@ AI_OBSERVATORY_QUEUE=observatory
 Supported modes are `sync`, `after_response`, and `queue`. Prompt, response, and
 tool payloads are redacted and size-limited before deferred or queued
 persistence. Queue payloads contain package DTO arrays, never Laravel AI SDK
-event objects. Queue dispatch and persistence failures do not affect the host
-AI response.
+event objects. Batches are compressed before dispatch. If one still exceeds
+the safe queue-payload limit, the deferred callback persists it locally instead
+of silently dropping it. Queue failures do not affect the host AI response.
 
 ## Queue context
 
@@ -273,9 +275,9 @@ transactions. Foreign keys restrict accidental parent deletion.
 
 ## SDK compatibility
 
-| Laravel AI SDK | Status                              | Adapter                   |
-| -------------- | ----------------------------------- | ------------------------- |
-| 0.10.1         | Source verified and contract tested | `LaravelAiSdkV010Adapter` |
+| Laravel AI SDK | Status                              | Adapter                          |
+| -------------- | ----------------------------------- | -------------------------------- |
+| 0.10.1         | Source verified and contract tested | Laravel AI SDK v0.10 adapter set |
 
 See the
 [verified SDK event inventory](docs/reference/sdk-events-v0.10.1.md).
@@ -304,6 +306,8 @@ Documentation inspired by [Spatie](https://spatie.be/docs).
 - SDK compatibility is verified only for `laravel/ai` 0.10.1.
 - Provider failover is recorded only to the extent exposed by official SDK
   events.
+- Laravel AI SDK 0.10.1 has no terminal agent- or tool-failure event. Failed
+  starts remain incomplete until request cleanup and stale recovery.
 - Interrupted streams require stale-trace recovery.
 - Automatic user, tenant, and feature resolver callbacks are planned; use the
   context or direct correlation APIs today.

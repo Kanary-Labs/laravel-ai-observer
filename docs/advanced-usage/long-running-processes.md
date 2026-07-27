@@ -16,6 +16,10 @@ For Octane, queue workers, and other long-running processes:
 - Run stale recovery for operations that can end without an SDK completion
   event.
 
+At application termination, AI Observatory flushes deferred persistence and
+clears abandoned trace and sampling state. The incomplete database rows remain
+available for `ai-observatory:recover-stale` to classify later.
+
 `withContext()` snapshots the existing context and restores it in a `finally`
 block, including when the callback throws.
 

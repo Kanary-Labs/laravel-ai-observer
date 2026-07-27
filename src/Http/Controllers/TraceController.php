@@ -33,12 +33,19 @@ final class TraceController
             'started_before' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:started_after'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'include_filter_options' => ['sometimes', 'boolean'],
         ]);
 
         foreach (['has_error', 'has_tool_calls'] as $booleanFilter) {
             if ($request->has($booleanFilter)) {
                 $filters[$booleanFilter] = $request->boolean($booleanFilter);
             }
+        }
+
+        if ($request->has('include_filter_options')) {
+            $filters['include_filter_options'] = $request->boolean(
+                'include_filter_options',
+            );
         }
 
         return response()->json($this->traces->paginate($filters));

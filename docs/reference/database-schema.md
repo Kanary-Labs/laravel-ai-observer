@@ -14,7 +14,8 @@ One row represents a complete AI workflow. Important columns include:
 - Provider, model, and agent class.
 - Indexed user, tenant, and feature context.
 - Environment.
-- Nullable token categories, estimated cost, and currency.
+- Nullable input, output, cached-read, cache-write, reasoning, and total token
+  categories, estimated cost, and currency.
 - Start, end, and duration.
 - Flexible metadata and tags JSON.
 
@@ -30,8 +31,9 @@ One row represents a timed operation:
 - Request, response, and metadata JSON.
 - Error type, message, and optional stack.
 
-`trace_id` and `span_id` are unique together. Trace/sequence and common filter
-columns are indexed.
+`trace_id` and `span_id` are unique together. Trace/sequence, list ordering,
+pruning, user, tenant, and common filter columns are indexed. Error messages
+use a long-text column so the configured payload ceiling is valid on MySQL.
 
 ## `ai_observatory_events`
 

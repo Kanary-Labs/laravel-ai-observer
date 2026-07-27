@@ -7,6 +7,9 @@ Redaction runs before synchronous, after-response, or queued persistence.
 Sensitive values are therefore removed before a queue payload leaves the
 application process.
 
+Object-backed DTOs, models, and collections are normalized to arrays before
+key and path rules run, so an object boundary cannot bypass redaction.
+
 ## Sensitive keys
 
 Matching is recursive and case insensitive. Defaults include authorization

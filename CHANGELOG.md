@@ -4,11 +4,32 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-27
+
 ### Changed
 
 - Added package-owned documentation with renderer-friendly navigation metadata.
 - Restricted Tailwind content discovery to dashboard source files so
   documentation cannot affect generated dashboard assets.
+- Added source-verified file and vector-store event coverage.
+- Added compressed queue jobs with retries and deferred local fallback for
+  oversized batches.
+- Bounded sampling buffers and dashboard detail/filter-option queries.
+- Preserved trace-list filters and pagination in dashboard URLs and lazily
+  rendered collapsed JSON nodes.
+
+### Fixed
+
+- Redacted object-backed payloads before persistence and substituted invalid
+  UTF-8 instead of dropping spans.
+- Normalized provider cache-read/cache-write token semantics and enabled
+  input-only operation pricing.
+- Stored cache-write usage and long provider errors without schema truncation.
+- Cleared abandoned trace and sampling context at request termination.
+- Restored nested inline queue context and recovered nested tool completions.
+- Resolved SDK listeners from the active application scope and avoided handling
+  unrelated Laravel events.
+- Added missing direct runtime dependencies and package archive exclusions.
 
 ## [1.0.0] - 2026-07-26
 
@@ -56,6 +77,7 @@ All notable changes to this project are documented here.
 - Dedicated user and tenant resolver callbacks are not included in this
   preview.
 
-[Unreleased]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Kanary-Labs/laravel-ai-observer/releases/tag/v1.0.0
 [0.1.0]: https://github.com/Kanary-Labs/laravel-ai-observer/releases/tag/v0.1.0

@@ -34,6 +34,8 @@ final readonly class AiSdkCompatibility
 
     public function adapter(): ?string
     {
-        return $this->isSupported() ? 'LaravelAiSdkV010Adapter' : null;
+        return $this->isSupported()
+            ? 'Laravel AI SDK v0.10 adapter set'
+            : null;
     }
 }

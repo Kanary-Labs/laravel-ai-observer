@@ -38,8 +38,8 @@ AI_OBSERVATORY_QUEUE_CONNECTION=redis
 AI_OBSERVATORY_QUEUE=observatory
 ```
 
-`queue` dispatches one job containing serialized internal event arrays. It
-never queues Laravel AI SDK event objects.
+`queue` dispatches one compressed job containing serialized internal event
+arrays. It never queues Laravel AI SDK event objects.
 
 Run a worker for the configured queue:
 
@@ -47,5 +47,10 @@ Run a worker for the configured queue:
 php artisan queue:work redis --queue=observatory
 ```
 
-The package recording job uses one attempt. Each malformed event is isolated so
-it does not prevent other events in the batch from being processed.
+The package recording job uses three attempts with a short backoff. Malformed
+serialized events are ignored safely; persistence failures are retried.
+
+`queue.max_payload_bytes` defaults to `180000`, leaving headroom for queue
+envelope overhead on services with a 256 KB limit. If a compressed batch is
+still larger, the deferred callback persists it locally. This preserves event
+ordering and avoids silently losing a large trace.

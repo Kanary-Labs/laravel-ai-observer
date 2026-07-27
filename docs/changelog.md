@@ -8,6 +8,7 @@ All notable changes are recorded in the repository
 
 Release notes provide a shorter summary for each published version:
 
+- [AI Observatory 1.0.1](release-notes-v1.0.1.md)
 - [AI Observatory 1.0.0](release-notes-v1.0.0.md)
 - [AI Observatory 0.1.0](release-notes-v0.1.0.md)
 

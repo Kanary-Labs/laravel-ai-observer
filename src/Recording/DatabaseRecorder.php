@@ -116,6 +116,16 @@ class DatabaseRecorder implements Recorder
             ->where('span_id', $event->spanId)
             ->first();
 
+        if ($span === null && is_string($event->attributes['tool_name'] ?? null)) {
+            $span = $this->newSpanQuery()
+                ->where('trace_id', $event->traceId)
+                ->whereIn('type', [SpanType::Tool->value, SpanType::Mcp->value])
+                ->where('name', $event->attributes['tool_name'])
+                ->where('status', 'running')
+                ->orderByDesc('sequence')
+                ->first();
+        }
+
         if ($span === null) {
             return;
         }
@@ -138,6 +148,7 @@ class DatabaseRecorder implements Recorder
             'input_tokens' => $usage?->input,
             'output_tokens' => $usage?->output,
             'cached_input_tokens' => $usage?->cachedInput,
+            'cache_write_input_tokens' => $usage?->cacheWriteInput,
             'reasoning_tokens' => $usage?->reasoning,
             'total_tokens' => $usage?->total,
             'estimated_cost' => $cost?->amount,
@@ -158,7 +169,7 @@ class DatabaseRecorder implements Recorder
         ]);
         $span->save();
 
-        $this->context->leaveSpan($event->spanId);
+        $this->context->leaveSpan((string) $span->getAttribute('span_id'));
     }
 
     private function finishTrace(TraceFinished $event): void
@@ -183,6 +194,7 @@ class DatabaseRecorder implements Recorder
             'input_tokens' => $this->nullableSum(clone $usageSpans, 'input_tokens'),
             'output_tokens' => $this->nullableSum(clone $usageSpans, 'output_tokens'),
             'cached_input_tokens' => $this->nullableSum(clone $usageSpans, 'cached_input_tokens'),
+            'cache_write_input_tokens' => $this->nullableSum(clone $usageSpans, 'cache_write_input_tokens'),
             'reasoning_tokens' => $this->nullableSum(clone $usageSpans, 'reasoning_tokens'),
             'total_tokens' => $this->nullableSum(clone $usageSpans, 'total_tokens'),
             'estimated_cost' => $cost['amount'],
@@ -245,6 +257,7 @@ class DatabaseRecorder implements Recorder
             $usage->whereNotNull('input_tokens')
                 ->orWhereNotNull('output_tokens')
                 ->orWhereNotNull('cached_input_tokens')
+                ->orWhereNotNull('cache_write_input_tokens')
                 ->orWhereNotNull('reasoning_tokens')
                 ->orWhereNotNull('total_tokens');
         });
@@ -327,7 +340,10 @@ class DatabaseRecorder implements Recorder
     private function normalize(array $payload): array
     {
         return json_decode(
-            (string) json_encode($payload, JSON_THROW_ON_ERROR),
+            (string) json_encode(
+                $payload,
+                JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE,
+            ),
             true,
             flags: JSON_THROW_ON_ERROR,
         );

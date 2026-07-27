@@ -21,6 +21,10 @@ return [
     'queue' => [
         'connection' => env('AI_OBSERVATORY_QUEUE_CONNECTION'),
         'name' => env('AI_OBSERVATORY_QUEUE', 'default'),
+        'max_payload_bytes' => env(
+            'AI_OBSERVATORY_QUEUE_MAX_PAYLOAD_BYTES',
+            180_000,
+        ),
     ],
 
     'capture' => [
@@ -64,6 +68,10 @@ return [
             'AI_OBSERVATORY_ALWAYS_RECORD_SLOW_TRACES_MS',
             10_000,
         ),
+        'max_buffered_events' => env(
+            'AI_OBSERVATORY_MAX_BUFFERED_EVENTS',
+            100,
+        ),
     ],
 
     'retention' => [
@@ -92,6 +100,7 @@ return [
         //         'input_per_million' => null,
         //         'output_per_million' => null,
         //         'cached_input_per_million' => null,
+        //         'cache_write_input_per_million' => null,
         //         'currency' => 'USD',
         //     ],
         // ],
@@ -99,5 +108,15 @@ return [
 
     'middleware' => [
         'web',
+    ],
+
+    'api_middleware' => [
+        'throttle:120,1',
+    ],
+
+    'dashboard' => [
+        'max_spans_per_trace' => 1_000,
+        'max_events_per_trace' => 1_000,
+        'max_filter_options' => 100,
     ],
 ];

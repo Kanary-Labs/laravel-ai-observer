@@ -1,16 +1,28 @@
+function dateFrom(value) {
+    if (!value) return null
+
+    const date = new Date(value)
+
+    return Number.isNaN(date.getTime()) ? null : date
+}
+
 export function formatDate(value) {
-    if (!value) return '—'
+    const date = dateFrom(value)
+
+    if (!date) return '—'
 
     return new Intl.DateTimeFormat(undefined, {
         dateStyle: 'medium',
         timeStyle: 'medium',
-    }).format(new Date(value))
+    }).format(date)
 }
 
 export function formatRelativeDate(value) {
-    if (!value) return '—'
+    const date = dateFrom(value)
 
-    const seconds = Math.round((new Date(value).getTime() - Date.now()) / 1000)
+    if (!date) return '—'
+
+    const seconds = Math.round((date.getTime() - Date.now()) / 1000)
     const formatter = new Intl.RelativeTimeFormat(undefined, {
         numeric: 'auto',
     })
@@ -33,30 +45,43 @@ export function formatRelativeDate(value) {
 
 export function formatDuration(value) {
     if (value === null || value === undefined) return '—'
-    if (value < 1_000) return `${Math.round(value)} ms`
-    if (value < 60_000)
-        return `${(value / 1_000).toFixed(value < 10_000 ? 2 : 1)} s`
+    const duration = Number(value)
 
-    return `${(value / 60_000).toFixed(1)} min`
+    if (!Number.isFinite(duration)) return '—'
+    if (duration < 1_000) return `${Math.round(duration)} ms`
+    if (duration < 60_000)
+        return `${(duration / 1_000).toFixed(duration < 10_000 ? 2 : 1)} s`
+
+    return `${(duration / 60_000).toFixed(1)} min`
 }
 
 export function formatTokens(value) {
     if (value === null || value === undefined) return '—'
+    const tokens = Number(value)
+
+    if (!Number.isFinite(tokens)) return '—'
 
     return new Intl.NumberFormat(undefined, {
-        notation: value >= 10_000 ? 'compact' : 'standard',
+        notation: tokens >= 10_000 ? 'compact' : 'standard',
         maximumFractionDigits: 1,
-    }).format(value)
+    }).format(tokens)
 }
 
 export function formatCost(value, currency) {
     if (value === null || value === undefined || !currency) return '—'
+    const cost = Number(value)
 
-    return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 6,
-    }).format(Number(value))
+    if (!Number.isFinite(cost)) return '—'
+
+    try {
+        return new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency,
+            maximumFractionDigits: 6,
+        }).format(cost)
+    } catch {
+        return '—'
+    }
 }
 
 export function shortClass(value) {

@@ -3,6 +3,9 @@
 namespace Kanary\AiObservatory\Context;
 
 use Illuminate\Support\Facades\Context;
+use Kanary\AiObservatory\Contracts\Redactor;
+use Kanary\AiObservatory\Support\PayloadLimiter;
+use Throwable;
 
 class TraceContext
 {
@@ -229,6 +232,83 @@ class TraceContext
             return;
         }
 
-        Context::addHidden(self::LARAVEL_CONTEXT_KEY, $this->snapshot());
+        Context::addHidden(
+            self::LARAVEL_CONTEXT_KEY,
+            $this->queueSafeSnapshot(),
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function queueSafeSnapshot(): array
+    {
+        $snapshot = $this->snapshot();
+
+        try {
+            if ($this->containsUnserializableValue($snapshot)) {
+                return $this->correlationOnlySnapshot($snapshot);
+            }
+
+            $encoded = json_encode(
+                $snapshot,
+                JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE,
+            );
+            $normalized = json_decode($encoded, true, flags: JSON_THROW_ON_ERROR);
+
+            if (! is_array($normalized)) {
+                return $this->correlationOnlySnapshot($snapshot);
+            }
+
+            $redacted = app(Redactor::class)->redact($normalized);
+
+            if (! is_array($redacted)) {
+                return $this->correlationOnlySnapshot($snapshot);
+            }
+
+            $attributes = $redacted['attributes'] ?? [];
+            $redacted['attributes'] = is_array($attributes)
+                ? app(PayloadLimiter::class)->limit($attributes)
+                : [];
+            $redacted['trace_stack'] = [];
+
+            return $redacted;
+        } catch (Throwable) {
+            return $this->correlationOnlySnapshot($snapshot);
+        }
+    }
+
+    private function containsUnserializableValue(mixed $value): bool
+    {
+        if ($value instanceof \Closure || is_resource($value)) {
+            return true;
+        }
+
+        if (! is_array($value)) {
+            return false;
+        }
+
+        foreach ($value as $item) {
+            if ($this->containsUnserializableValue($item)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Keep correlation usable when an application attaches a value that cannot
+     * be serialized into Laravel's queued context.
+     *
+     * @param  array<string, mixed>  $snapshot
+     * @return array<string, mixed>
+     */
+    private function correlationOnlySnapshot(array $snapshot): array
+    {
+        return [
+            'trace_id' => $snapshot['trace_id'] ?? null,
+            'span_stack' => $snapshot['span_stack'] ?? [],
+            'attributes' => [],
+            'trace_stack' => [],
+        ];
     }
 }

@@ -8,6 +8,7 @@ AI Observatory normalizes provider usage into independent nullable categories:
 - Input tokens.
 - Output tokens.
 - Cached input tokens.
+- Cache-write input tokens.
 - Reasoning tokens.
 - Total tokens.
 
@@ -27,7 +28,8 @@ usage.
 ## Estimated costs
 
 Costs are calculated only when the local pricing catalog contains a matching
-provider and model with every required rate.
+provider and model with every rate required by the reported usage categories.
+Input-only operations do not require an output-token value or output rate.
 
 Unknown, incomplete, invalid, or mixed-currency pricing produces `null`.
 Unpriced usage is never shown as free usage.

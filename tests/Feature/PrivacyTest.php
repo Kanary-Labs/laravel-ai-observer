@@ -168,3 +168,100 @@ it('redacts metadata context and errors before database persistence', function (
         ->and($span->error_message)->toBe('[REDACTED]')
         ->and($span->error_stack)->toBeNull();
 });
+
+it('normalizes object payloads before redacting sensitive keys', function () {
+    $recorder = app(Recorder::class);
+    $traceId = '018f47a2-4f4e-7d10-9c2f-6f447d7a3021';
+    $spanId = '018f47a2-4f4e-7d10-9c2f-6f447d7a3022';
+    $now = now()->toImmutable();
+
+    $recorder->record(new TraceStarted($traceId, $spanId, 'Object redaction', $now));
+    $recorder->record(new SpanStarted(
+        $traceId,
+        $spanId,
+        null,
+        SpanType::Tool,
+        'DTO tool',
+        $now,
+    ));
+    $recorder->record(new SpanFinished(
+        $traceId,
+        $spanId,
+        $now->addSecond(),
+        SpanStatus::Successful,
+        response: [
+            'result' => (object) [
+                'api_key' => 'sk-live-secret',
+                'note' => 'safe',
+            ],
+        ],
+    ));
+
+    expect(Span::query()->where('span_id', $spanId)->sole()->response_payload)
+        ->toMatchArray([
+            'result' => [
+                'api_key' => '[REDACTED]',
+                'note' => 'safe',
+            ],
+        ]);
+});
+
+it('substitutes invalid UTF-8 without dropping the recorded span', function () {
+    $recorder = app(Recorder::class);
+    $traceId = '018f47a2-4f4e-7d10-9c2f-6f447d7a3031';
+    $spanId = '018f47a2-4f4e-7d10-9c2f-6f447d7a3032';
+    $now = now()->toImmutable();
+
+    $recorder->record(new TraceStarted($traceId, $spanId, 'Invalid UTF-8', $now));
+    $recorder->record(new SpanStarted(
+        $traceId,
+        $spanId,
+        null,
+        SpanType::Model,
+        'Streamed response',
+        $now,
+    ));
+    $recorder->record(new SpanFinished(
+        $traceId,
+        $spanId,
+        $now->addSecond(),
+        SpanStatus::Successful,
+        response: ['text' => "partial \xC3\x28 response"],
+    ));
+
+    $span = Span::query()->where('span_id', $spanId)->sole();
+
+    expect($span->status)->toBe('successful')
+        ->and($span->response_payload['text'])->toContain("\u{FFFD}");
+});
+
+it('stores provider error messages up to the configured payload limit', function () {
+    $recorder = app(Recorder::class);
+    $traceId = '018f47a2-4f4e-7d10-9c2f-6f447d7a3041';
+    $spanId = '018f47a2-4f4e-7d10-9c2f-6f447d7a3042';
+    $now = now()->toImmutable();
+    $message = str_repeat('provider-error-', 5_500);
+
+    $recorder->record(new TraceStarted($traceId, $spanId, 'Large error', $now));
+    $recorder->record(new SpanStarted(
+        $traceId,
+        $spanId,
+        null,
+        SpanType::Model,
+        'Failed provider call',
+        $now,
+    ));
+    $recorder->record(new SpanFinished(
+        $traceId,
+        $spanId,
+        $now->addSecond(),
+        SpanStatus::Failed,
+        error: new ThrowableData(RuntimeException::class, $message),
+    ));
+
+    $span = Span::query()->where('span_id', $spanId)->sole();
+
+    expect($span->status)->toBe('failed')
+        ->and($span->error_message)->toBe($message)
+        ->and(strlen($span->error_message))->toBeGreaterThan(65_535);
+});

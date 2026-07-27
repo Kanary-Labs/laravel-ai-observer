@@ -21,12 +21,16 @@ final class DashboardController
         $assetVersion = is_file($assetPath)
             ? substr((string) hash_file('sha256', $assetPath), 0, 12)
             : 'missing';
+        $homePath = parse_url(route('ai-observatory.home'), PHP_URL_PATH);
+        $basePath = is_string($homePath)
+            ? '/'.trim($homePath, '/')
+            : '/'.trim((string) config('ai-observatory.path'), '/');
 
         return $this->views->make('ai-observatory::app', [
             'observatory' => [
                 'apiBase' => route('ai-observatory.api.traces.index'),
                 'overviewApi' => route('ai-observatory.api.overview'),
-                'basePath' => '/'.trim((string) config('ai-observatory.path'), '/'),
+                'basePath' => $basePath,
                 'environment' => app()->environment(),
                 'recordingMode' => config('ai-observatory.recording_mode', 'sync'),
                 'assetVersion' => $assetVersion,

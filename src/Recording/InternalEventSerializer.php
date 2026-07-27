@@ -133,15 +133,18 @@ final class InternalEventSerializer
         };
     }
 
-    /** @return array<string, int|null>|null */
+    /** @return array<string, bool|int|null>|null */
     private function serializeUsage(?TokenUsage $usage): ?array
     {
         return $usage === null ? null : [
             'input' => $usage->input,
             'output' => $usage->output,
             'cached_input' => $usage->cachedInput,
+            'cache_write_input' => $usage->cacheWriteInput,
             'reasoning' => $usage->reasoning,
             'total' => $usage->total,
+            'input_includes_cached' => $usage->inputIncludesCached,
+            'output_applicable' => $usage->outputApplicable,
         ];
     }
 
@@ -167,6 +170,13 @@ final class InternalEventSerializer
             cachedInput: $this->nullableInt($usage['cached_input'] ?? null),
             reasoning: $this->nullableInt($usage['reasoning'] ?? null),
             total: $this->nullableInt($usage['total'] ?? null),
+            cacheWriteInput: $this->nullableInt($usage['cache_write_input'] ?? null),
+            inputIncludesCached: is_bool($usage['input_includes_cached'] ?? null)
+                ? $usage['input_includes_cached']
+                : true,
+            outputApplicable: is_bool($usage['output_applicable'] ?? null)
+                ? $usage['output_applicable']
+                : true,
         );
     }
 

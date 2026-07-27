@@ -34,6 +34,26 @@ Using `--force` replaces local configuration customizations. Compare the
 package's current `config/ai-observatory.php` with your application copy before
 running it.
 
+## Upgrading from 1.0.0 to 1.0.1
+
+Version 1.0.1 publishes one ordered, idempotent compatibility migration. Run:
+
+```bash
+php artisan ai-observatory:install
+php artisan migrate
+```
+
+The migration adds cache-write token columns, expands provider error storage,
+and adds indexes used by pruning, ordering, and user or tenant filters. It
+preserves the package's restrictive foreign keys and does not cascade trace
+deletions.
+
+New queue, sampling, API, and dashboard limits have safe runtime defaults even
+when an application's published configuration predates 1.0.1. Compare the
+published configuration before using `--force`. Add
+`cache_write_input_per_million` to overridden pricing entries when the provider
+charges separately for cache creation.
+
 ## Upgrading from 0.1 to 1.0
 
 Version 1.0 establishes the stable public API commitment. Runtime behavior and

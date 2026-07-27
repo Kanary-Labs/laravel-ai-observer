@@ -9,7 +9,7 @@ import {
     XMarkIcon,
 } from '@heroicons/react/16/solid'
 import clsx from 'clsx'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getJson, queryString } from './api'
 import { Overview } from './components/Overview'
 import { TraceDetail } from './components/TraceDetail'
@@ -38,6 +38,48 @@ const reportViews = {
     failures: { status: 'failed' },
     tools: { has_tool_calls: '1' },
     slow: { min_duration: '1000' },
+}
+
+const filterKeys = Object.keys(emptyFilters)
+
+function filtersFromSearch(search, view = null) {
+    const filters = {
+        ...emptyFilters,
+        ...(reportViews[view] ?? {}),
+    }
+
+    for (const key of filterKeys) {
+        if (!search.has(key)) continue
+
+        const value = search.get(key)
+
+        if (key === 'page' || key === 'per_page') {
+            const parsed = Number.parseInt(value, 10)
+
+            if (Number.isInteger(parsed) && parsed > 0) filters[key] = parsed
+        } else {
+            filters[key] = value ?? ''
+        }
+    }
+
+    return filters
+}
+
+function traceListUrl(basePath, filters, view, traceId = null) {
+    const params = new URLSearchParams()
+
+    for (const [key, value] of Object.entries(filters)) {
+        if (value !== emptyFilters[key] && value !== '' && value !== null) {
+            params.set(key, String(value))
+        }
+    }
+
+    if (view && Object.hasOwn(reportViews, view)) params.set('view', view)
+    if (traceId) params.set('trace', traceId)
+
+    const query = params.toString()
+
+    return `${basePath}/traces${query ? `?${query}` : ''}`
 }
 
 const navigationGroups = [
@@ -273,8 +315,7 @@ export default function App({ className }) {
         config.initialTraceId ? 'page' : initialDialogTraceId ? 'dialog' : null,
     )
     const [filters, setFilters] = useState({
-        ...emptyFilters,
-        ...(reportViews[initialView] ?? {}),
+        ...filtersFromSearch(initialSearch, initialView),
     })
     const [traces, setTraces] = useState([])
     const [meta, setMeta] = useState(null)
@@ -291,6 +332,7 @@ export default function App({ className }) {
     )
     const [overviewError, setOverviewError] = useState(null)
     const [refresh, setRefresh] = useState(0)
+    const filterOptions = useRef(null)
     const listQuery = useMemo(() => queryString(filters), [filters])
 
     const navigate = useCallback(
@@ -312,9 +354,8 @@ export default function App({ className }) {
                     location.searchParams.delete('trace')
                     path = `${location.pathname}${location.search}`
                 } else {
-                    path = `${config.basePath}/traces`
+                    path = traceListUrl(config.basePath, filters, activeView)
                     setPage('traces')
-                    setActiveView('traces')
                 }
             }
 
@@ -327,7 +368,7 @@ export default function App({ className }) {
             setDetailMode(nextTraceId ? mode : null)
             window.scrollTo({ top: 0 })
         },
-        [config.basePath],
+        [activeView, config.basePath, filters],
     )
 
     useEffect(() => {
@@ -351,14 +392,8 @@ export default function App({ className }) {
                       ? nextView
                       : 'traces',
             )
-            if (nextView && Object.hasOwn(reportViews, nextView)) {
-                setFilters({
-                    ...emptyFilters,
-                    ...reportViews[nextView],
-                })
-            } else if (nextPage === 'traces' && !pathTraceId) {
-                setFilters(emptyFilters)
-            }
+            if (nextPage === 'traces')
+                setFilters(filtersFromSearch(search, nextView))
             setTraceId(pathTraceId || dialogTraceId || null)
             setDetailMode(
                 pathTraceId ? 'page' : dialogTraceId ? 'dialog' : null,
@@ -369,6 +404,26 @@ export default function App({ className }) {
 
         return () => window.removeEventListener('popstate', pop)
     }, [config.basePath])
+
+    useEffect(() => {
+        if (page !== 'traces' || detailMode === 'page') return
+
+        const nextUrl = traceListUrl(
+            config.basePath,
+            filters,
+            activeView,
+            detailMode === 'dialog' ? traceId : null,
+        )
+        const currentUrl = `${window.location.pathname}${window.location.search}`
+
+        if (nextUrl !== currentUrl) {
+            window.history.replaceState(
+                { traceId, mode: detailMode, view: activeView },
+                '',
+                nextUrl,
+            )
+        }
+    }, [activeView, config.basePath, detailMode, filters, page, traceId])
 
     useEffect(() => {
         const controller = new AbortController()
@@ -383,11 +438,19 @@ export default function App({ className }) {
 
             try {
                 const response = await getJson(
-                    `${config.apiBase}?${listQuery}`,
+                    `${config.apiBase}?${listQuery}&include_filter_options=${
+                        filterOptions.current === null ? '1' : '0'
+                    }`,
                     controller.signal,
                 )
                 setTraces(response.data)
-                setMeta(response.meta)
+                if (response.meta.filter_options) {
+                    filterOptions.current = response.meta.filter_options
+                }
+                setMeta({
+                    ...response.meta,
+                    filter_options: filterOptions.current ?? {},
+                })
             } catch (requestError) {
                 if (requestError.name !== 'AbortError')
                     setListError(requestError.message)

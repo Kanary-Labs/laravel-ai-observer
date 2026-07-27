@@ -100,6 +100,7 @@ Every concrete stream event also inherits `invocationId: ?string` from
 | First token timing                              | Timestamp on the first `TextDelta` in the completed streamed response                                         |
 | Streaming error                                 | `Streaming\Events\Error` inside the completed response when available                                         |
 | Image, audio, transcription, embeddings, rerank | Paired start/completion events listed above                                                                   |
+| Files and vector stores                         | Paired storage/store events plus completion-only file/store deletion events                                   |
 
 ## Compatibility constraints
 

@@ -33,6 +33,7 @@ class Span extends ObservatoryModel
             'input_tokens' => 'integer',
             'output_tokens' => 'integer',
             'cached_input_tokens' => 'integer',
+            'cache_write_input_tokens' => 'integer',
             'reasoning_tokens' => 'integer',
             'total_tokens' => 'integer',
             'estimated_cost' => 'decimal:8',

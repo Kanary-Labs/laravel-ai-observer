@@ -27,6 +27,7 @@ it('creates the portable trace and span schema', function () {
             'trace_id',
             'span_id',
             'parent_span_id',
+            'cache_write_input_tokens',
             'request_payload',
             'response_payload',
         ]))->toBeTrue();
@@ -42,9 +43,11 @@ it('publishes one idempotent migration set', function () {
     ])->assertSuccessful();
 
     $after = glob("{$migrationPath}/*_create_ai_observatory_*_table.php");
+    $upgrades = glob("{$migrationPath}/*_upgrade_ai_observatory_*.php");
 
     expect($before)->toBeArray()->toHaveCount(3)
-        ->and($after)->toBe($before);
+        ->and($after)->toBe($before)
+        ->and($upgrades)->toBeArray()->toHaveCount(1);
 });
 
 it('uses the configured connection for package models', function () {

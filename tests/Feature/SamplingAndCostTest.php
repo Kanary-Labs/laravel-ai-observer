@@ -3,6 +3,7 @@
 use Carbon\CarbonImmutable;
 use Kanary\AiObservatory\Contracts\CostCalculator;
 use Kanary\AiObservatory\Contracts\Recorder;
+use Kanary\AiObservatory\Contracts\Sampler;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
 use Kanary\AiObservatory\Data\TokenUsage;
@@ -61,6 +62,33 @@ it('makes the sampling decision only once at trace start', function () {
         ->and(Span::query()->count())->toBe(0);
 });
 
+it('uses a deterministic approximate sample rate between zero and one', function () {
+    $sampler = app(Sampler::class);
+    $sampled = 0;
+
+    foreach (range(1, 10_000) as $index) {
+        $traceId = sprintf('trace-%05d', $index);
+        $decision = $sampler->shouldSample($traceId, 0.1);
+
+        expect($sampler->shouldSample($traceId, 0.1))->toBe($decision);
+        $sampled += $decision ? 1 : 0;
+    }
+
+    expect($sampled)->toBeBetween(850, 1_150);
+});
+
+it('promotes an unsampled trace before its promotion buffer can grow unbounded', function () {
+    config()->set('ai-observatory.sampling.rate', 0.0);
+    config()->set('ai-observatory.sampling.always_record_failures', true);
+    config()->set('ai-observatory.sampling.always_record_slow_traces_ms', null);
+    config()->set('ai-observatory.sampling.max_buffered_events', 2);
+
+    recordTrace(TraceStatus::Successful);
+
+    expect(Trace::query()->sole()->status)->toBe('successful')
+        ->and(Span::query()->sole()->status)->toBe('successful');
+});
+
 it('promotes a failed trace even when its sampling decision is false', function () {
     config()->set('ai-observatory.sampling.rate', 0.0);
     config()->set('ai-observatory.sampling.always_record_failures', true);
@@ -106,6 +134,62 @@ it('calculates configured input output and cached-input prices', function () {
         ->and($cost?->currency)->toBe('USD')
         ->and($cost?->catalogVersion)->toBe('test-v1')
         ->and($cost?->effectiveDate)->toBe('2026-07-01');
+});
+
+it('prices cached input that is reported separately from uncached input', function () {
+    configurePricing();
+
+    $cost = app(CostCalculator::class)->calculate(
+        'test-provider',
+        'test-model',
+        new TokenUsage(
+            input: 2_000,
+            output: 500,
+            cachedInput: 8_000,
+            total: 10_500,
+            inputIncludesCached: false,
+        ),
+    );
+
+    expect($cost?->amount)->toBe('0.04600000');
+});
+
+it('prices cache-write input as an independent usage category', function () {
+    configurePricing();
+
+    $cost = app(CostCalculator::class)->calculate(
+        'test-provider',
+        'test-model',
+        new TokenUsage(
+            input: 100,
+            output: 50,
+            total: 1_150,
+            cacheWriteInput: 1_000,
+            inputIncludesCached: false,
+        ),
+    );
+
+    expect($cost?->amount)->toBe('0.00700000');
+});
+
+it('prices input-only operations without inventing output usage', function () {
+    configurePricing();
+    config()->set(
+        'ai-observatory.pricing.test-provider.test-model.output_per_million',
+        null,
+    );
+
+    $cost = app(CostCalculator::class)->calculate(
+        'test-provider',
+        'test-model',
+        new TokenUsage(
+            input: 1_000,
+            total: 1_000,
+            outputApplicable: false,
+        ),
+    );
+
+    expect($cost?->amount)->toBe('0.01000000');
 });
 
 it('returns null when pricing or required usage categories are unknown', function () {
@@ -302,6 +386,7 @@ function configurePricing(): void
                 'input_per_million' => 10,
                 'output_per_million' => 20,
                 'cached_input_per_million' => 2,
+                'cache_write_input_per_million' => 5,
                 'currency' => 'USD',
             ],
         ],

@@ -19,14 +19,32 @@ trait MapsLaravelAiV010Data
         return $provider->name();
     }
 
-    protected function tokenUsage(Usage $usage): TokenUsage
+    protected function tokenUsage(Usage $usage, string $provider): TokenUsage
     {
+        $cachedInput = max(0, $usage->cacheReadInputTokens);
+        $cacheWriteInput = max(0, $usage->cacheWriteInputTokens);
+        $reportedInput = max(0, $usage->promptTokens);
+        $inputIncludesCached = in_array(strtolower($provider), [
+            'deepseek',
+            'groq',
+            'openai-compatible',
+            'openrouter',
+        ], true);
+        $uncachedInput = $inputIncludesCached
+            ? max(0, $reportedInput - $cachedInput - $cacheWriteInput)
+            : $reportedInput;
+
         return new TokenUsage(
-            input: $usage->promptTokens,
-            output: $usage->completionTokens,
-            cachedInput: $usage->cacheReadInputTokens,
-            reasoning: $usage->reasoningTokens,
-            total: $usage->promptTokens + $usage->completionTokens,
+            input: $uncachedInput,
+            output: max(0, $usage->completionTokens),
+            cachedInput: $cachedInput,
+            reasoning: max(0, $usage->reasoningTokens),
+            total: $uncachedInput
+                + $cachedInput
+                + $cacheWriteInput
+                + max(0, $usage->completionTokens),
+            cacheWriteInput: $cacheWriteInput,
+            inputIncludesCached: false,
         );
     }
 }

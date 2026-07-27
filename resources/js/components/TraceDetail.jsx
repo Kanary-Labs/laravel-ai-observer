@@ -573,6 +573,18 @@ export function TraceDetail({
                         </dl>
                     </div>
 
+                    {trace.detail_limits?.spans_truncated ||
+                    trace.detail_limits?.events_truncated ? (
+                        <div className="rounded-lg bg-amber-50 p-3 text-sm/6 text-amber-900 ring-1 ring-amber-600/10 ring-inset">
+                            This trace is larger than the dashboard display
+                            limit. Showing up to{' '}
+                            {trace.detail_limits.max_spans.toLocaleString()}{' '}
+                            spans and{' '}
+                            {trace.detail_limits.max_events.toLocaleString()}{' '}
+                            lifecycle events.
+                        </div>
+                    ) : null}
+
                     <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(16rem,2fr)]">
                         <section
                             className="min-w-0"

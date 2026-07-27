@@ -35,6 +35,10 @@ AI Observatory stores its correlation snapshot in Laravel's hidden Context.
 Laravel serializes that hidden context with the queued job. The middleware
 restores it before the job runs and clears it afterward.
 
+Context values are normalized, redacted, and size-limited before they enter
+Laravel's hidden queue context. Values that cannot be serialized are omitted
+while trace and parent-span correlation are preserved.
+
 This middleware propagates application trace context into a queued job. It is
 separate from `AI_OBSERVATORY_RECORDING_MODE=queue`, which controls how
 Observatory itself persists captured events.

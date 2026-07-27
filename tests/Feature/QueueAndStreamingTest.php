@@ -2,6 +2,7 @@
 
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\Factory as QueueFactory;
+use Illuminate\Http\Request;
 use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Queue;
@@ -31,6 +32,7 @@ use Kanary\AiObservatory\Recording\InternalEventSerializer;
 use Kanary\AiObservatory\Recording\PersistenceRecorder;
 use Kanary\AiObservatory\Recording\RecordingPipeline;
 use Kanary\AiObservatory\Sampling\SamplingRecorder;
+use Kanary\AiObservatory\Support\PayloadLimiter;
 use Kanary\AiObservatory\Tests\Fixtures\ToolCallingAgent;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Providers\TextProvider;
@@ -145,18 +147,64 @@ it('dispatches one redacted internal event batch to the configured queue', funct
     Queue::assertPushedOn('observatory', PersistRecordedEvents::class);
 
     $job = Queue::pushed(PersistRecordedEvents::class)->first();
+    $payloads = $job->payloads();
 
-    expect($job->events)->not->toBeEmpty()
-        ->and($job->events[0]['type'])->toBe('trace_started')
-        ->and($job->events[1]['request']['password'])->toBe('[REDACTED]')
-        ->and(collect($job->events)->every(fn (mixed $event): bool => is_array($event)))->toBeTrue()
-        ->and(json_decode((string) json_encode($job->events), true))->toBe($job->events)
+    expect($payloads)->not->toBeEmpty()
+        ->and($payloads[0]['type'])->toBe('trace_started')
+        ->and($payloads[1]['request']['password'])->toBe('[REDACTED]')
+        ->and(collect($payloads)->every(fn (mixed $event): bool => is_array($event)))->toBeTrue()
+        ->and(json_decode((string) json_encode($payloads), true))->toBe($payloads)
+        ->and($job->payloadBytes())->toBeLessThan(
+            strlen((string) json_encode($payloads)) + 2_000,
+        )
         ->and(Trace::query()->count())->toBe(0);
 
     app()->call([$job, 'handle']);
 
     expect(Trace::query()->sole()->status)->toBe('successful')
         ->and(Span::query()->count())->toBe(1);
+});
+
+it('falls back to deferred local persistence when a queue payload is too large', function () {
+    Queue::fake();
+    config()->set('ai-observatory.recording_mode', 'queue');
+    config()->set('ai-observatory.queue.max_payload_bytes', 1);
+    app()->forgetInstance(PersistenceRecorder::class);
+    app()->forgetInstance(RecordingPipeline::class);
+    app()->forgetInstance(Recorder::class);
+
+    $now = CarbonImmutable::now();
+    $recorder = app(Recorder::class);
+    $recorder->record(new TraceStarted(
+        QUEUE_TRACE_ID,
+        QUEUE_ROOT_SPAN_ID,
+        'Oversized queued trace',
+        $now,
+    ));
+    $recorder->record(new SpanStarted(
+        QUEUE_TRACE_ID,
+        QUEUE_ROOT_SPAN_ID,
+        null,
+        SpanType::Agent,
+        'Oversized queued agent',
+        $now,
+    ));
+    $recorder->record(new SpanFinished(
+        QUEUE_TRACE_ID,
+        QUEUE_ROOT_SPAN_ID,
+        $now->addSecond(),
+        SpanStatus::Successful,
+    ));
+    $recorder->record(new TraceFinished(
+        QUEUE_TRACE_ID,
+        $now->addSecond(),
+        TraceStatus::Successful,
+    ));
+
+    app(DeferredCallbackCollection::class)->invoke();
+
+    Queue::assertNothingPushed();
+    expect(Trace::query()->sole()->status)->toBe('successful');
 });
 
 it('persists a fake agent end to end through the sync queue connection', function () {
@@ -320,6 +368,79 @@ it('propagates trace context through Laravel queue context and clears it after a
         ->and($context->currentTraceId())->toBeNull()
         ->and($context->attributes())->toBe([])
         ->and(Context::hasHidden(TraceContext::LARAVEL_CONTEXT_KEY))->toBeFalse();
+});
+
+it('restores existing scoped context after inline queue middleware execution', function () {
+    $context = app(TraceContext::class);
+    $context->start(PARENT_TRACE_ID, PARENT_SPAN_ID);
+    $context->tag('feature', 'parent-feature');
+
+    Context::addHidden(TraceContext::LARAVEL_CONTEXT_KEY, [
+        'trace_id' => CHILD_TRACE_ID,
+        'span_stack' => [CHILD_ROOT_SPAN_ID],
+        'attributes' => ['feature' => 'child-feature'],
+        'trace_stack' => [],
+    ]);
+
+    $observedTraceId = null;
+
+    (new PropagateAiTraceContext)->handle(
+        new stdClass,
+        function () use (&$observedTraceId): void {
+            $observedTraceId = app(TraceContext::class)->currentTraceId();
+        },
+    );
+
+    expect($observedTraceId)->toBe(CHILD_TRACE_ID)
+        ->and($context->currentTraceId())->toBe(PARENT_TRACE_ID)
+        ->and($context->currentSpanId())->toBe(PARENT_SPAN_ID)
+        ->and($context->attributes()['feature'])->toBe('parent-feature');
+});
+
+it('stores only redacted serializable values in Laravel queue context', function () {
+    $context = app(TraceContext::class);
+    $context->start(PARENT_TRACE_ID, PARENT_SPAN_ID);
+    $context->tag('api_key', 'queue-secret');
+    $context->tag('request', Request::create('/sensitive', 'POST'));
+
+    $snapshot = Context::getHidden(TraceContext::LARAVEL_CONTEXT_KEY);
+
+    expect($snapshot)->toBeArray()
+        ->and($snapshot['trace_id'])->toBe(PARENT_TRACE_ID)
+        ->and($snapshot['attributes']['api_key'])->toBe('[REDACTED]')
+        ->and($snapshot['attributes']['request'])->toBeArray()
+        ->and(fn () => Context::dehydrate())->not->toThrow(Throwable::class);
+});
+
+it('preserves correlation when a context tag cannot be serialized', function () {
+    $context = app(TraceContext::class);
+    $context->start(PARENT_TRACE_ID, PARENT_SPAN_ID);
+
+    expect(fn () => $context->tag('callback', fn (): string => 'unsafe'))
+        ->not->toThrow(Throwable::class);
+
+    $snapshot = Context::getHidden(TraceContext::LARAVEL_CONTEXT_KEY);
+
+    expect($snapshot['trace_id'])->toBe(PARENT_TRACE_ID)
+        ->and($snapshot['span_stack'])->toBe([PARENT_SPAN_ID])
+        ->and($snapshot['attributes'])->toBe([]);
+});
+
+it('limits queued application context without losing trace correlation', function () {
+    config()->set('ai-observatory.payloads.max_bytes', 100);
+    app()->forgetInstance(PayloadLimiter::class);
+    $context = app(TraceContext::class);
+    $context->start(PARENT_TRACE_ID, PARENT_SPAN_ID);
+    $context->tag('large', str_repeat('x', 1_000));
+
+    $snapshot = Context::getHidden(TraceContext::LARAVEL_CONTEXT_KEY);
+
+    expect($snapshot['trace_id'])->toBe(PARENT_TRACE_ID)
+        ->and($snapshot['span_stack'])->toBe([PARENT_SPAN_ID])
+        ->and($snapshot['attributes'])->toBe([
+            '_truncated' => true,
+            '_original_bytes' => 1_012,
+        ]);
 });
 
 it('restores manual context after scoped execution even when it throws', function () {
