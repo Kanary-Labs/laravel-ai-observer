@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-27
+
 ### Changed
 
 - Added package-owned documentation with renderer-friendly navigation metadata.
@@ -75,6 +77,7 @@ All notable changes to this project are documented here.
 - Dedicated user and tenant resolver callbacks are not included in this
   preview.
 
-[Unreleased]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Kanary-Labs/laravel-ai-observer/releases/tag/v1.0.0
 [0.1.0]: https://github.com/Kanary-Labs/laravel-ai-observer/releases/tag/v0.1.0
