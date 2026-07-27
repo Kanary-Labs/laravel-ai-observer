@@ -31,10 +31,12 @@ Untested or unsupported SDK versions are reported explicitly by
 
 ## Documentation
 
-Start with the package-owned [documentation](docs/introduction.md). It covers
-installation, basic usage, trace concepts, privacy, recording modes, dashboard
-workflows, advanced extensions, and complete configuration and command
-references.
+Read the
+[Laravel AI Observatory documentation](https://kanarylabs.com/docs/laravel-ai-observatory/).
+It covers installation, basic usage, trace concepts, privacy, recording modes,
+dashboard workflows, advanced extensions, and complete configuration and
+command references. The package-owned Markdown source is available in
+[docs](docs/_index.md).
 
 ## Installation
 
