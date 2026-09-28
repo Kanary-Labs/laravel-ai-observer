@@ -286,7 +286,7 @@ See the
 [SDK 1.0 event inventory](docs/reference/sdk-events-v1.0.0.md) and the
 [legacy SDK event inventory](docs/reference/sdk-events-v0.10.1.md).
 
-SDK 1.x support is included in the upcoming Observatory 1.1 release. It adds
+SDK 1.x support is included in Observatory 1.1.0. It adds
 live model-step timing, terminal agent/tool failures, classification traces,
 and the SDK's new usage objects. No schema migration is needed from 1.0.1.
 

@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-28
+
 ### Added
 
 - Laravel AI SDK 1.0 support alongside SDK 0.10.1–0.10.3.
@@ -13,7 +15,7 @@ All notable changes to this project are documented here.
 - Classification traces and updated embedding, audio, reranking, image, and
   transcription usage support.
 - SDK-version CI coverage, source inventory, and upgrade guidance for the
-  upcoming 1.1 release. No schema migration is required from 1.0.1.
+  1.1.0 release. No schema migration is required from 1.0.1.
 
 ### Fixed
 
@@ -97,7 +99,8 @@ All notable changes to this project are documented here.
 - Dedicated user and tenant resolver callbacks are not included in this
   preview.
 
-[Unreleased]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/Kanary-Labs/laravel-ai-observer/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Kanary-Labs/laravel-ai-observer/releases/tag/v1.0.0
 [0.1.0]: https://github.com/Kanary-Labs/laravel-ai-observer/releases/tag/v0.1.0

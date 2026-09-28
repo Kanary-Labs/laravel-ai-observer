@@ -34,13 +34,13 @@ Using `--force` replaces local configuration customizations. Compare the
 package's current `config/ai-observatory.php` with your application copy before
 running it.
 
-## Upgrading from 1.0.1 to 1.1 (upcoming)
+## Upgrading from 1.0.1 to 1.1.0
 
 Observatory 1.1 supports `laravel/ai:^0.10.1 || ^1.0`. Existing SDK 0.10
 applications do not need to upgrade the SDK immediately. No new database
 migration or configuration key is required for this compatibility update.
 
-After the 1.1 release is available, update Observatory first, then explicitly
+Update Observatory first, then explicitly
 upgrade the SDK if your application's Composer constraint still targets 0.10:
 
 ```bash
