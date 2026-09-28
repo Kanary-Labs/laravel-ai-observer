@@ -20,7 +20,7 @@ final readonly class AiSdkCompatibility
     public function isSupported(): bool
     {
         return $this->version !== null
-            && preg_match('/^v?0\.10\./', $this->version) === 1;
+            && preg_match('/^v?(0\.10\.|1\.)/', $this->version) === 1;
     }
 
     public function status(): string
@@ -29,13 +29,21 @@ final readonly class AiSdkCompatibility
             return 'not_installed';
         }
 
-        return $this->isSupported() ? 'tested' : 'unsupported';
+        if (! $this->isSupported()) {
+            return 'unsupported';
+        }
+
+        return in_array(ltrim($this->version ?? '', 'v'), ['0.10.1', '0.10.2', '0.10.3', '1.0.0'], true)
+            ? 'tested'
+            : 'untested';
     }
 
     public function adapter(): ?string
     {
         return $this->isSupported()
-            ? 'Laravel AI SDK v0.10 adapter set'
+            ? (str_starts_with(ltrim($this->version ?? '', 'v'), '1.')
+                ? 'Laravel AI SDK v1 adapter set'
+                : 'Laravel AI SDK v0.10 adapter set')
             : null;
     }
 }

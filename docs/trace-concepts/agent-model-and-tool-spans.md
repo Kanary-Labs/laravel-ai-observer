@@ -9,7 +9,24 @@ and root span ID.
 
 ## Model spans
 
-For non-streamed responses, Laravel AI SDK 0.10.1 exposes individual provider
+### SDK 1.x
+
+`StartingStep` creates a model span. `StepCompleted` or `StepFailed` completes
+that exact span, including during streaming and provider failover. Each attempt
+has a distinct span ID, even when the SDK restarts its step numbering.
+
+Spans record observed start/end times and the SDK's `sdk_duration_ms`. Metadata
+contains `timing: sdk_step_events`. Usage is taken from the individual step,
+never added again from the aggregate agent response.
+
+The root agent stores the user prompt. Step requests store the step number,
+not a second copy of conversation history, tool results, or provider replay
+blocks. Response text, tool calls, and usage follow the normal capture and
+redaction settings. Reasoning text is not recorded.
+
+### SDK 0.10.x
+
+For non-streamed responses, Laravel AI SDK 0.10.x exposes individual provider
 steps only on the completed agent response. AI Observatory reconstructs one
 model span for each response step.
 
@@ -39,5 +56,10 @@ Do not interpret a zero duration on these spans as provider latency.
 using the SDK tool invocation ID. MCP tools receive the `mcp` type; other tools
 receive the `tool` type.
 
-Tool exceptions may prevent the completion event from being dispatched. Stale
-recovery handles spans left running by that SDK limitation.
+SDK 1.x dispatches `ToolFailed` and `AgentFailed` for terminal exceptions,
+allowing failed spans and traces to close immediately. Tool completion/failure
+metadata includes the SDK's measured duration when available.
+
+SDK 0.10.x tool exceptions may prevent completion events from being dispatched.
+Stale recovery handles spans left running by that limitation or interrupted
+processes on either SDK version.

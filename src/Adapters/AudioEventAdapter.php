@@ -2,7 +2,7 @@
 
 namespace Kanary\AiObservatory\Adapters;
 
-use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiV010Data;
+use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiData;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
 use Kanary\AiObservatory\Data\TraceFinished;
@@ -15,7 +15,7 @@ use Laravel\Ai\Events\GeneratingAudio;
 
 class AudioEventAdapter implements AiSdkEventAdapter
 {
-    use MapsLaravelAiV010Data;
+    use MapsLaravelAiData;
 
     public function supports(object $event): bool
     {
@@ -64,6 +64,9 @@ class AudioEventAdapter implements AiSdkEventAdapter
                         'encoded_bytes' => strlen($event->response->audio),
                         'audio_recorded' => false,
                     ],
+                    usage: isset($event->response->usage)
+                        ? $this->tokenUsage($event->response->usage, $event->provider->name())
+                        : null,
                     attributes: [
                         'provider' => $event->provider->name(),
                         'model' => $event->model,

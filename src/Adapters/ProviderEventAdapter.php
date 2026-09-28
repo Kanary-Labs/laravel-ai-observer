@@ -2,7 +2,7 @@
 
 namespace Kanary\AiObservatory\Adapters;
 
-use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiV010Data;
+use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiData;
 use Kanary\AiObservatory\Data\EventRecorded;
 use Kanary\AiObservatory\Data\ThrowableData;
 use Laravel\Ai\Events\AgentFailedOver;
@@ -10,7 +10,7 @@ use Laravel\Ai\Events\ProviderFailedOver;
 
 class ProviderEventAdapter implements AiSdkEventAdapter
 {
-    use MapsLaravelAiV010Data;
+    use MapsLaravelAiData;
 
     public function supports(object $event): bool
     {

@@ -32,6 +32,7 @@ use Laravel\Ai\Contracts\Providers\StoreProvider;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Contracts\Providers\TranscriptionProvider;
 use Laravel\Ai\Events\AddingFileToStore;
+use Laravel\Ai\Events\AgentFailed;
 use Laravel\Ai\Events\AgentFailedOver;
 use Laravel\Ai\Events\AgentPrompted;
 use Laravel\Ai\Events\AgentStreamed;
@@ -71,10 +72,14 @@ use Laravel\Ai\Responses\AgentResponse;
 use Laravel\Ai\Responses\AudioResponse;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\GeneratedImage;
+use Laravel\Ai\Responses\Data\ImageUsage;
 use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\Data\RankedDocument;
+use Laravel\Ai\Responses\Data\RerankingUsage;
 use Laravel\Ai\Responses\Data\Step;
 use Laravel\Ai\Responses\Data\StoreFileCounts;
+use Laravel\Ai\Responses\Data\TextUsage;
+use Laravel\Ai\Responses\Data\TranscriptionUsage;
 use Laravel\Ai\Responses\Data\Usage;
 use Laravel\Ai\Responses\EmbeddingsResponse;
 use Laravel\Ai\Responses\ImageResponse;
@@ -126,7 +131,7 @@ it('maps verified agent start and completion events', function () {
     $response = (new AgentResponse(
         INVOCATION_ID,
         'It is sunny.',
-        new Usage(10, 4, 0, 2, 1),
+        sdkUsage(10, 4, 0, 2, 1),
         new Meta('openai', 'gpt-test'),
     ))->withSteps(collect());
     $finished = $adapter->adapt(new AgentPrompted(INVOCATION_ID, $prompt, $response));
@@ -145,18 +150,21 @@ it('maps verified agent start and completion events', function () {
 it('maps failover without inventing an invocation id', function () {
     $adapter = new AgentEventAdapter;
     $exception = new class('Provider unavailable') extends Exception implements FailoverableException {};
-    $event = new AgentFailedOver(
-        Mockery::mock(Agent::class),
+    $arguments = [Mockery::mock(Agent::class),
         concreteProvider(),
         'gpt-test',
         $exception,
-    );
+    ];
+    if (class_exists(AgentFailed::class)) {
+        array_unshift($arguments, INVOCATION_ID);
+    }
+    $event = new AgentFailedOver(...$arguments);
 
     $adapted = $adapter->adapt($event);
 
     expect($adapted)->toHaveCount(1)
         ->and($adapted[0])->toBeInstanceOf(EventRecorded::class)
-        ->and($adapted[0]->traceId)->toBeNull()
+        ->and($adapted[0]->traceId)->toBe($event->invocationId ?? null)
         ->and($adapted[0]->eventType)->toBe('provider_failed_over');
 });
 
@@ -179,13 +187,15 @@ it('reconstructs model spans from verified response steps without double countin
         [],
         [],
         FinishReason::Stop,
-        new Usage(10, 4, 0, 2, 1),
+        sdkUsage(10, 4, 0, 2, 1),
         new Meta('openai', 'gpt-test'),
+        '',
+        [],
     );
     $response = (new AgentResponse(
         INVOCATION_ID,
         'It is sunny.',
-        new Usage(10, 4, 0, 2, 1),
+        sdkUsage(10, 4, 0, 2, 1),
         new Meta('openai', 'gpt-test'),
     ))->withSteps(collect([$step]));
 
@@ -211,7 +221,7 @@ it('maps streaming model timing and usage from completed stream events', functio
             ->withInvocationId(INVOCATION_ID),
         (new TextDelta('delta', 'message', 'Hello', 1_700_000_001))
             ->withInvocationId(INVOCATION_ID),
-        (new StreamEnd('end', 'stop', new Usage(8, 3), 1_700_000_002))
+        (new StreamEnd('end', 'stop', sdkUsage(8, 3), 1_700_000_002))
             ->withInvocationId(INVOCATION_ID),
     ]);
     $response = new StreamedAgentResponse(
@@ -286,6 +296,7 @@ it('maps tool start and completion using the SDK tool name resolver', function (
         $tool,
         ['city' => 'Amman'],
         'Sunny',
+        2.5,
     ));
 
     expect($started[0])->toBeInstanceOf(SpanStarted::class)
@@ -312,7 +323,7 @@ it('maps embedding events without recording vectors', function () {
         $provider,
         'embed-test',
         $prompt,
-        new EmbeddingsResponse([[0.1, 0.2]], 7, new Meta('openai', 'embed-test')),
+        new EmbeddingsResponse([[0.1, 0.2]], class_exists(TextUsage::class) ? new Usage(7) : 7, new Meta('openai', 'embed-test')),
     ));
 
     expect($started[1]->type)->toBe(SpanType::Embedding)
@@ -344,13 +355,18 @@ it('maps image events without recording generated binary data', function () {
         $prompt,
         new ImageResponse(
             collect([new GeneratedImage(base64_encode('image'))]),
-            new Usage(3, 2),
+            class_exists(ImageUsage::class) ? new ImageUsage(3, 2, imageInputTokens: 1, imageOutputTokens: 2) : new Usage(3, 2),
             new Meta('openai', 'image-test'),
         ),
     ));
 
     expect($started[1]->type)->toBe(SpanType::Image)
-        ->and($finished[0]->response)->toBe(['image_count' => 1]);
+        ->and($finished[0]->response)->toBe(['image_count' => 1])
+        ->and($finished[0]->usage->total)->toBe(5);
+    if (class_exists(ImageUsage::class)) {
+        expect($finished[0]->attributes['image_input_tokens'])->toBe(1)
+            ->and($finished[0]->attributes['image_output_tokens'])->toBe(2);
+    }
 });
 
 it('maps audio events without recording generated binary data', function () {
@@ -370,12 +386,15 @@ it('maps audio events without recording generated binary data', function () {
         $provider,
         'audio-test',
         $prompt,
-        new AudioResponse(base64_encode('audio'), new Meta('openai', 'audio-test'), 'audio/mp3'),
+        class_exists(TextUsage::class)
+            ? new AudioResponse(base64_encode('audio'), new Usage(4, 2), new Meta('openai', 'audio-test'), 'audio/mp3')
+            : new AudioResponse(base64_encode('audio'), new Meta('openai', 'audio-test'), 'audio/mp3'),
     ));
 
     expect($started[1]->type)->toBe(SpanType::Audio)
         ->and($finished[0]->response['mime_type'])->toBe('audio/mp3')
         ->and($finished[0]->response['audio_recorded'])->toBeFalse();
+    expect($finished[0]->usage?->total)->toBe(class_exists(TextUsage::class) ? 6 : null);
 });
 
 it('maps transcription events from verified response properties', function () {
@@ -403,7 +422,7 @@ it('maps transcription events from verified response properties', function () {
         new TranscriptionResponse(
             'Hello',
             collect(),
-            new Usage(4, 2),
+            class_exists(TranscriptionUsage::class) ? new TranscriptionUsage(4, 2, audioSeconds: 1.5) : new Usage(4, 2),
             new Meta('openai', 'transcribe-test'),
         ),
     ));
@@ -414,6 +433,9 @@ it('maps transcription events from verified response properties', function () {
             'segments_count' => 0,
         ])
         ->and($finished[0]->usage->total)->toBe(6);
+    if (class_exists(TranscriptionUsage::class)) {
+        expect($finished[0]->attributes['audio_seconds'])->toBe(1.5);
+    }
 });
 
 it('maps reranking events to normalized arrays', function () {
@@ -433,16 +455,20 @@ it('maps reranking events to normalized arrays', function () {
         $provider,
         'rerank-test',
         $prompt,
-        new RerankingResponse(
-            [new RankedDocument(1, 'B', 0.9)],
-            new Meta('cohere', 'rerank-test'),
-        ),
+        class_exists(RerankingUsage::class)
+            ? new RerankingResponse([new RankedDocument(1, 'B', 0.9)], new RerankingUsage(12, 1), new Meta('cohere', 'rerank-test'))
+            : new RerankingResponse([new RankedDocument(1, 'B', 0.9)], new Meta('cohere', 'rerank-test')),
     ));
 
     expect($started[1]->type)->toBe(SpanType::Rerank)
         ->and($finished[0]->response['results'])->toBe([
             ['index' => 1, 'document' => 'B', 'score' => 0.9],
         ]);
+    expect($finished[0]->usage?->total)->toBe(class_exists(RerankingUsage::class) ? 12 : null);
+    if (class_exists(RerankingUsage::class)) {
+        expect($finished[0]->usage->outputApplicable)->toBeFalse()
+            ->and($finished[0]->attributes['search_units'])->toBe(1.0);
+    }
 });
 
 it('maps every verified file and vector-store event without file content', function () {
@@ -575,9 +601,17 @@ it('allows custom adapters to be registered once', function () {
 it('reports the installed sdk compatibility baseline', function () {
     $compatibility = AiSdkCompatibility::current();
 
-    expect($compatibility->version)->toStartWith('v0.10.1')
+    expect($compatibility->isSupported())->toBeTrue()
         ->and($compatibility->status())->toBe('tested')
         ->and($compatibility->adapter())->toBe(
-            'Laravel AI SDK v0.10 adapter set',
+            class_exists(TextUsage::class) ? 'Laravel AI SDK v1 adapter set' : 'Laravel AI SDK v0.10 adapter set',
         );
 });
+
+it('distinguishes tested, untested and unsupported sdk versions', function (?string $version, string $status) {
+    expect((new AiSdkCompatibility($version))->status())->toBe($status);
+})->with([
+    ['v1.0.0', 'tested'], ['0.10.1', 'tested'], ['0.10.2', 'tested'], ['0.10.3', 'tested'],
+    ['1.0.1', 'untested'], ['1.1.0', 'untested'], ['0.10.4', 'untested'],
+    ['0.11.0', 'unsupported'], ['2.0.0', 'unsupported'], [null, 'not_installed'],
+]);

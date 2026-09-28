@@ -10,6 +10,7 @@ use Kanary\AiObservatory\Http\Middleware\Authorize;
 use Kanary\AiObservatory\Models\ObservatoryEvent;
 use Kanary\AiObservatory\Models\Span;
 use Kanary\AiObservatory\Models\Trace;
+use Kanary\AiObservatory\Support\AiSdkCompatibility;
 
 it('authorizes local access and denies production access by default', function () {
     $authorization = app(Authorization::class);
@@ -109,7 +110,7 @@ it('reports package installation and SDK compatibility status', function () {
     $this->artisan('ai-observatory:status')
         ->expectsOutputToContain('Installed')
         ->expectsOutputToContain('tested')
-        ->expectsOutputToContain('Laravel AI SDK v0.10 adapter set')
+        ->expectsOutputToContain(AiSdkCompatibility::current()->adapter())
         ->assertSuccessful();
 });
 

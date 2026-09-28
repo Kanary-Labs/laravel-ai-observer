@@ -2,7 +2,8 @@
 
 namespace Kanary\AiObservatory\Adapters;
 
-use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiV010Data;
+use Carbon\CarbonImmutable;
+use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiData;
 use Kanary\AiObservatory\Data\EventRecorded;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
@@ -12,6 +13,7 @@ use Kanary\AiObservatory\Data\TraceStarted;
 use Kanary\AiObservatory\Enums\SpanStatus;
 use Kanary\AiObservatory\Enums\SpanType;
 use Kanary\AiObservatory\Enums\TraceStatus;
+use Laravel\Ai\Events\AgentFailed;
 use Laravel\Ai\Events\AgentFailedOver;
 use Laravel\Ai\Events\AgentPrompted;
 use Laravel\Ai\Events\AgentStreamed;
@@ -21,16 +23,20 @@ use Laravel\Ai\Events\ToolApprovalRequested;
 use Laravel\Ai\Events\ToolApprovalResolved;
 use Laravel\Ai\Responses\StreamedAgentResponse;
 use Laravel\Ai\Streaming\Events\Error as StreamError;
+use Laravel\Ai\Streaming\Events\StreamEnd;
+use Laravel\Ai\Streaming\Events\StreamStart;
+use Laravel\Ai\Streaming\Events\TextDelta;
 
 class AgentEventAdapter implements AiSdkEventAdapter
 {
-    use MapsLaravelAiV010Data;
+    use MapsLaravelAiData;
 
     public function supports(object $event): bool
     {
         return $event instanceof PromptingAgent
             || $event instanceof AgentPrompted
             || $event instanceof AgentFailedOver
+            || $event instanceof AgentFailed
             || $event instanceof ToolApprovalRequested
             || $event instanceof ToolApprovalResolved;
     }
@@ -38,6 +44,7 @@ class AgentEventAdapter implements AiSdkEventAdapter
     public function adapt(object $event): array
     {
         return match (true) {
+            $event instanceof AgentFailed => $this->failed($event),
             $event instanceof AgentFailedOver => [$this->failedOver($event)],
             $event instanceof ToolApprovalRequested => [$this->approvalRequested($event)],
             $event instanceof ToolApprovalResolved => [$this->approvalResolved($event)],
@@ -45,6 +52,22 @@ class AgentEventAdapter implements AiSdkEventAdapter
             $event instanceof PromptingAgent => $this->started($event),
             default => [],
         };
+    }
+
+    /** @return list<object> */
+    private function failed(AgentFailed $event): array
+    {
+        $now = $this->now();
+        $error = ThrowableData::fromThrowable($event->exception);
+        $attributes = [
+            'provider' => $event->prompt->provider->name(),
+            'model' => $event->prompt->model,
+        ];
+
+        return [
+            new SpanFinished($event->invocationId, $event->invocationId, $now, SpanStatus::Failed, error: $error, attributes: $attributes),
+            new TraceFinished($event->invocationId, $now, TraceStatus::Failed, error: $error, attributes: $attributes),
+        ];
     }
 
     /** @return list<object> */
@@ -93,7 +116,7 @@ class AgentEventAdapter implements AiSdkEventAdapter
         $streamError = $event->response instanceof StreamedAgentResponse
             ? $event->response->events
                 ->whereInstanceOf(StreamError::class)
-                ->first(fn (StreamError $error): bool => ! $error->recoverable)
+                ->first(fn (StreamError $error): bool => $error->invocationId === $event->invocationId && ! $error->recoverable)
             : null;
         $failed = $streamError instanceof StreamError;
         $error = $failed
@@ -104,6 +127,27 @@ class AgentEventAdapter implements AiSdkEventAdapter
             'model' => $event->response->meta->model,
             'streaming' => $event instanceof AgentStreamed,
         ];
+
+        // SDK 1.x models are recorded per step; keep aggregate stream timing on the agent.
+        if ($event->response instanceof StreamedAgentResponse) {
+            $events = $event->response->events->filter(fn ($item): bool => $item->invocationId === $event->invocationId);
+            $start = $events->whereInstanceOf(StreamStart::class)->first();
+            $first = $events->whereInstanceOf(TextDelta::class)->first();
+            $end = $events->whereInstanceOf(StreamEnd::class)->last();
+
+            if ($start instanceof StreamStart) {
+                $attributes['request_started_at'] = CarbonImmutable::createFromTimestamp($start->timestamp)->toIso8601String();
+                $attributes['first_token_at'] = $first instanceof TextDelta
+                    ? CarbonImmutable::createFromTimestamp($first->timestamp)->toIso8601String()
+                    : null;
+                $attributes['time_to_first_token_ms'] = $first instanceof TextDelta
+                    ? max(0, ($first->timestamp - $start->timestamp) * 1000)
+                    : null;
+                $attributes['response_completed_at'] = $end instanceof StreamEnd
+                    ? CarbonImmutable::createFromTimestamp($end->timestamp)->toIso8601String()
+                    : $now->toIso8601String();
+            }
+        }
 
         return [
             new SpanFinished(
@@ -131,8 +175,8 @@ class AgentEventAdapter implements AiSdkEventAdapter
     private function failedOver(AgentFailedOver $event): EventRecorded
     {
         return new EventRecorded(
-            traceId: null,
-            spanId: null,
+            traceId: $event->invocationId ?? null,
+            spanId: $event->invocationId ?? null,
             eventType: 'provider_failed_over',
             occurredAt: $this->now(),
             payload: [

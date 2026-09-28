@@ -17,7 +17,9 @@ For Octane, queue workers, and other long-running processes:
   event.
 
 At application termination, AI Observatory flushes deferred persistence and
-clears abandoned trace and sampling state. The incomplete database rows remain
+clears abandoned trace, sampling, and SDK 1.x step-correlation state. Stateful
+adapters resolve from the active application scope, including Octane scopes.
+The incomplete database rows remain
 available for `ai-observatory:recover-stale` to classify later.
 
 `withContext()` snapshots the existing context and restores it in a `finally`

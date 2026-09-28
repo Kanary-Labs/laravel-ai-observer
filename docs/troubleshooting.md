@@ -37,8 +37,9 @@ Run `php artisan ai-observatory:recover-stale --minutes=30` and schedule the
 command at an interval appropriate for the application.
 
 Agent and tool exceptions can have the same effect because Laravel AI SDK
-0.10.1 does not dispatch a dedicated terminal failure event for every started
-agent or tool operation.
+0.10.x does not dispatch a dedicated terminal failure event for every started
+agent or tool operation. SDK 1.x terminal agent/tool exceptions close their
+traces immediately; interrupted processes can still need recovery.
 
 ## Migration or foreign-key errors
 
@@ -61,10 +62,13 @@ spans use incompatible currencies or any constituent model span is unpriced.
 
 ## A trace has zero-duration model spans
 
-For non-streamed agents, Laravel AI exposes individual model steps only when the
+For non-streamed agents on SDK 0.10.x, Laravel AI exposes individual model steps only when the
 agent response completes. AI Observatory reconstructs those spans at completion
 and marks their timing metadata as `reconstructed_at_completion`. This is an SDK
 event limitation, not a database timing error.
+
+SDK 1.x records model start/end events directly. Very fast calls or SDK fakes
+can still round to zero milliseconds.
 
 ## Debug logging
 

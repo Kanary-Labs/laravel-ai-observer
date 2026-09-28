@@ -53,7 +53,7 @@ class TraceContext
 
     public function currentSpanId(): ?string
     {
-        return $this->spanStack[array_key_last($this->spanStack)] ?? null;
+        return $this->spanStack === [] ? null : $this->spanStack[array_key_last($this->spanStack)];
     }
 
     public function enterSpan(string $spanId): void

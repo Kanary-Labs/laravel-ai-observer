@@ -39,6 +39,6 @@ publish exploit details or sensitive trace content in an issue.
 
 ## Unsupported SDK behavior
 
-Laravel AI is pre-1.0. If a new SDK release changes events or payloads, open an
+If a new Laravel AI SDK release changes events or payloads, open an
 issue with the exact SDK version and the output of `ai-observatory:status`.
 Unknown events are ignored safely rather than guessed.

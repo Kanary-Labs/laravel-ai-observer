@@ -2,6 +2,7 @@
 
 use Kanary\AiObservatory\Models\Span;
 use Kanary\AiObservatory\Models\Trace;
+use Laravel\Ai\Events\AgentFailed;
 
 it('generates realistic demo traces without provider credentials', function (): void {
     $this->artisan('ai-observatory:demo')->assertSuccessful();
@@ -12,6 +13,6 @@ it('generates realistic demo traces without provider credentials', function (): 
         ->and(Trace::query()->where('agent_class', 'like', '%StreamingAgent')->exists())->toBeTrue()
         ->and(Trace::query()->where('agent_class', 'like', '%ResearchAgent')->exists())->toBeTrue()
         ->and(Trace::query()->where('agent_class', 'like', '%FailingToolAgent')
-            ->where('status', 'cancelled')
+            ->where('status', class_exists(AgentFailed::class) ? 'failed' : 'cancelled')
             ->exists())->toBeTrue();
 });

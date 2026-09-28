@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * @property string|null $provider
+ * @property string|null $model
  * @property string|null $estimated_cost
  * @property string|null $currency
  * @property CarbonImmutable|null $started_at

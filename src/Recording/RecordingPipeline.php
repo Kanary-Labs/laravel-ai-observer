@@ -92,7 +92,7 @@ class RecordingPipeline implements Recorder
                 'parent_trace_id' => is_string($snapshot['trace_id'])
                     ? $snapshot['trace_id']
                     : null,
-                'parent_span_id' => $spanStack[array_key_last($spanStack)] ?? null,
+                'parent_span_id' => $spanStack === [] ? null : $spanStack[array_key_last($spanStack)],
                 'attributes' => $this->process(
                     'tags',
                     $this->normalizeContextAttributes($attributes),
@@ -144,7 +144,7 @@ class RecordingPipeline implements Recorder
         $response = $event->response;
 
         if (! config('ai-observatory.capture.responses', true)) {
-            unset($response['text']);
+            unset($response['text'], $response['answers']);
         }
 
         if (
