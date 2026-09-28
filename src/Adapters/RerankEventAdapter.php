@@ -2,9 +2,10 @@
 
 namespace Kanary\AiObservatory\Adapters;
 
-use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiV010Data;
+use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiData;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
+use Kanary\AiObservatory\Data\TokenUsage;
 use Kanary\AiObservatory\Data\TraceFinished;
 use Kanary\AiObservatory\Data\TraceStarted;
 use Kanary\AiObservatory\Enums\SpanStatus;
@@ -15,7 +16,7 @@ use Laravel\Ai\Events\Reranking;
 
 class RerankEventAdapter implements AiSdkEventAdapter
 {
-    use MapsLaravelAiV010Data;
+    use MapsLaravelAiData;
 
     public function supports(object $event): bool
     {
@@ -65,9 +66,15 @@ class RerankEventAdapter implements AiSdkEventAdapter
                             $event->response->results,
                         ),
                     ],
+                    usage: isset($event->response->usage) ? new TokenUsage(
+                        input: $event->response->usage->inputTokens,
+                        total: $event->response->usage->inputTokens,
+                        outputApplicable: false,
+                    ) : null,
                     attributes: [
                         'provider' => $event->provider->name(),
                         'model' => $event->model,
+                        ...isset($event->response->usage) ? ['search_units' => $event->response->usage->searchUnits] : [],
                     ],
                 ),
                 new TraceFinished($event->invocationId, $now, TraceStatus::Successful),

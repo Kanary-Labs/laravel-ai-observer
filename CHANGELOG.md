@@ -4,6 +4,26 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Laravel AI SDK 1.0 support alongside SDK 0.10.1–0.10.3.
+- Live model-step spans for streamed and non-streamed agents, including failed
+  attempts and measured SDK durations.
+- Terminal agent/tool failure capture and invocation-correlated agent failover.
+- Classification traces and updated embedding, audio, reranking, image, and
+  transcription usage support.
+- SDK-version CI coverage, source inventory, and upgrade guidance for the
+  upcoming 1.1 release. No schema migration is required from 1.0.1.
+
+### Fixed
+
+- Normalize SDK 1.x inclusive token totals without double-counting cache or
+  reasoning usage; preserve nullable usage details.
+- Resolve stateful step adapters from the active application scope and clear
+  abandoned correlation state at termination.
+- Preserve agent start time across failover and persist actual completion
+  provider/model values for spans and traces.
+
 ## [1.0.1] - 2026-07-27
 
 ### Changed

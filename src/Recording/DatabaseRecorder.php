@@ -102,7 +102,7 @@ class DatabaseRecorder implements Recorder
             'sequence' => $span->exists
                 ? $span->sequence
                 : $this->nextSequence($event->traceId),
-            'started_at' => $event->startedAt,
+            'started_at' => $span->started_at ?? $event->startedAt,
             'request_payload' => $event->request ?: null,
             'metadata' => $event->attributes ?: null,
         ]);
@@ -141,6 +141,8 @@ class DatabaseRecorder implements Recorder
                 : null;
         $span->fill([
             'status' => $event->status->value,
+            'provider' => $provider,
+            'model' => $model,
             'ended_at' => $event->endedAt,
             'duration_ms' => $span->started_at === null
                 ? null
@@ -187,6 +189,8 @@ class DatabaseRecorder implements Recorder
 
         $trace->fill([
             'status' => $event->status->value,
+            'provider' => $event->attributes['provider'] ?? $trace->provider,
+            'model' => $event->attributes['model'] ?? $trace->model,
             'ended_at' => $event->endedAt,
             'duration_ms' => $trace->started_at === null
                 ? null

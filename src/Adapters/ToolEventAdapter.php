@@ -2,12 +2,14 @@
 
 namespace Kanary\AiObservatory\Adapters;
 
-use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiV010Data;
+use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiData;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
+use Kanary\AiObservatory\Data\ThrowableData;
 use Kanary\AiObservatory\Enums\SpanStatus;
 use Kanary\AiObservatory\Enums\SpanType;
 use Laravel\Ai\Events\InvokingTool;
+use Laravel\Ai\Events\ToolFailed;
 use Laravel\Ai\Events\ToolInvoked;
 use Laravel\Ai\Tools\McpServerTool;
 use Laravel\Ai\Tools\McpTool;
@@ -15,16 +17,24 @@ use Laravel\Ai\Tools\ToolNameResolver;
 
 class ToolEventAdapter implements AiSdkEventAdapter
 {
-    use MapsLaravelAiV010Data;
+    use MapsLaravelAiData;
 
     public function supports(object $event): bool
     {
-        return $event instanceof InvokingTool || $event instanceof ToolInvoked;
+        return $event instanceof InvokingTool || $event instanceof ToolInvoked || $event instanceof ToolFailed;
     }
 
     public function adapt(object $event): array
     {
         return match (true) {
+            $event instanceof ToolFailed => [new SpanFinished(
+                $event->invocationId,
+                $event->toolInvocationId,
+                $this->now(),
+                SpanStatus::Failed,
+                error: ThrowableData::fromThrowable($event->exception),
+                attributes: ['tool_name' => ToolNameResolver::resolve($event->tool), 'sdk_duration_ms' => $event->time],
+            )],
             $event instanceof ToolInvoked => [$this->finished($event)],
             $event instanceof InvokingTool => [$this->started($event)],
             default => [],
@@ -56,6 +66,7 @@ class ToolEventAdapter implements AiSdkEventAdapter
             attributes: [
                 'tool_name' => ToolNameResolver::resolve($event->tool),
                 'agent_class' => $event->agent::class,
+                ...isset($event->time) ? ['sdk_duration_ms' => $event->time] : [],
             ],
         );
     }

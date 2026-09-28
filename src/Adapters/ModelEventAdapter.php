@@ -4,7 +4,7 @@ namespace Kanary\AiObservatory\Adapters;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
-use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiV010Data;
+use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiData;
 use Kanary\AiObservatory\Data\EventRecorded;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
@@ -12,6 +12,7 @@ use Kanary\AiObservatory\Data\ThrowableData;
 use Kanary\AiObservatory\Enums\SpanStatus;
 use Kanary\AiObservatory\Enums\SpanType;
 use Laravel\Ai\Events\AgentPrompted;
+use Laravel\Ai\Events\StartingStep;
 use Laravel\Ai\Responses\Data\Step;
 use Laravel\Ai\Responses\StreamedAgentResponse;
 use Laravel\Ai\Streaming\Events\Error as StreamError;
@@ -21,11 +22,12 @@ use Laravel\Ai\Streaming\Events\TextDelta;
 
 class ModelEventAdapter implements AiSdkEventAdapter
 {
-    use MapsLaravelAiV010Data;
+    use MapsLaravelAiData;
 
     public function supports(object $event): bool
     {
-        return $event instanceof AgentPrompted;
+        return ! class_exists(StartingStep::class)
+            && $event instanceof AgentPrompted;
     }
 
     public function adapt(object $event): array

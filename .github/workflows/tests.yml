@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   test:
-    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }} / ${{ matrix.database }}
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }} / ${{ matrix.database }} / SDK ${{ matrix.sdk }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -17,6 +17,12 @@ jobs:
         php: ['8.3', '8.4', '8.5']
         laravel: ['12', '13']
         database: [sqlite, mysql, pgsql]
+        sdk: ['0.10.1', '1.0.0']
+        include:
+          - { php: '8.4', laravel: '12', database: sqlite, sdk: '0.10.2' }
+          - { php: '8.4', laravel: '13', database: sqlite, sdk: '0.10.2' }
+          - { php: '8.4', laravel: '12', database: sqlite, sdk: '0.10.3' }
+          - { php: '8.4', laravel: '13', database: sqlite, sdk: '0.10.3' }
 
     services:
       mysql:
@@ -62,7 +68,7 @@ jobs:
 
       - run: composer require --dev "orchestra/testbench:${{ matrix.laravel == '12' && '^10.6' || '^11.0' }}" --no-update
 
-      - run: composer update --prefer-dist --no-interaction
+      - run: composer update --with "laravel/ai:${{ matrix.sdk }}" --prefer-dist --no-interaction
 
       - run: composer test
 

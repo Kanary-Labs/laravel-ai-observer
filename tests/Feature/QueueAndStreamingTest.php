@@ -39,7 +39,6 @@ use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Events\AgentStreamed;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Responses\Data\Meta;
-use Laravel\Ai\Responses\Data\Usage;
 use Laravel\Ai\Responses\StreamedAgentResponse;
 use Laravel\Ai\Streaming\Events\Error as StreamError;
 use Laravel\Ai\Streaming\Events\StreamEnd;
@@ -467,7 +466,7 @@ it('maps failed streamed responses with lifecycle timing and provider errors', f
             false,
             1_700_000_001,
         ))->withInvocationId(QUEUE_STREAM_INVOCATION_ID),
-        (new StreamEnd('end', 'error', new Usage(8, 0), 1_700_000_002))
+        (new StreamEnd('end', 'error', sdkUsage(8, 0), 1_700_000_002))
             ->withInvocationId(QUEUE_STREAM_INVOCATION_ID),
     ]);
     $response = new StreamedAgentResponse(

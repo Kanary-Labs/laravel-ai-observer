@@ -34,6 +34,30 @@ Using `--force` replaces local configuration customizations. Compare the
 package's current `config/ai-observatory.php` with your application copy before
 running it.
 
+## Upgrading from 1.0.1 to 1.1 (upcoming)
+
+Observatory 1.1 supports `laravel/ai:^0.10.1 || ^1.0`. Existing SDK 0.10
+applications do not need to upgrade the SDK immediately. No new database
+migration or configuration key is required for this compatibility update.
+
+After the 1.1 release is available, update Observatory first, then explicitly
+upgrade the SDK if your application's Composer constraint still targets 0.10:
+
+```bash
+composer update kanary/laravel-ai-observatory --with-all-dependencies
+composer require laravel/ai:^1.0 --with-all-dependencies
+php artisan ai-observatory:status
+```
+
+Ensure your Observatory constraint allows 1.1. Restart queue workers and Octane
+after deploying. Run application tests: the SDK's usage objects and response
+constructors changed in 1.0, including fakes constructed directly in tests.
+Observatory adapts these changes internally; your own SDK usage may need changes.
+
+New SDK 1.x traces use live model-step events for streamed and non-streamed
+operations. Terminal agent/tool exceptions are recorded immediately. Older
+stored traces remain readable. Pricing is still application-configured.
+
 ## Upgrading from 1.0.0 to 1.0.1
 
 Version 1.0.1 publishes one ordered, idempotent compatibility migration. Run:
@@ -63,5 +87,5 @@ required.
 ## Laravel AI SDK upgrades
 
 Run `ai-observatory:status` after changing `laravel/ai`. Do not assume a new
-pre-1.0 SDK release is compatible. AI Observatory reports unsupported versions
+SDK release is compatible. AI Observatory reports untested and unsupported versions
 and ignores unknown events rather than inventing event mappings.

@@ -20,7 +20,7 @@ Open `/ai-observatory/traces`. A completed agent operation normally produces:
 
 1. One trace for the complete agent invocation.
 2. One root agent span.
-3. One or more model spans reconstructed from the response steps.
+3. One or more model spans (live step events on SDK 1.x, reconstructed on 0.10).
 4. Tool or MCP spans when the agent invokes tools.
 5. Instant events for supported failover, approval, and streaming lifecycle
    activity.
@@ -39,12 +39,13 @@ compatibility, migrations, and database connection.
 
 ## Standalone operations
 
-Supported embedding, reranking, image, audio, and transcription operations
+Supported embedding, reranking, image, audio, transcription, and SDK 1.x classification operations
 create their own traces. These traces do not require an enclosing agent.
 
 ## If the operation fails before completion
 
-Laravel AI SDK 0.10.1 does not dispatch a terminal failure event for every
+SDK 1.x terminal agent and tool failures are recorded immediately.
+Laravel AI SDK 0.10.x does not dispatch a terminal failure event for every
 started agent or tool operation. A trace may remain `running` after an
 exception. Use the [stale recovery command](../recording-storage/retention-and-recovery.md)
 to mark abandoned operations as cancelled.

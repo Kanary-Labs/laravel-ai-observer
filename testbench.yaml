@@ -1,6 +1,7 @@
 laravel: '@testbench'
 
 providers:
+  - Kanary\AiObservatory\AiObservatoryServiceProvider
   - Workbench\App\Providers\WorkbenchServiceProvider
 
 migrations:

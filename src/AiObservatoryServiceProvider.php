@@ -8,11 +8,13 @@ use Illuminate\Support\ServiceProvider;
 use Kanary\AiObservatory\Adapters\AgentEventAdapter;
 use Kanary\AiObservatory\Adapters\AiSdkEventAdapterRegistry;
 use Kanary\AiObservatory\Adapters\AudioEventAdapter;
+use Kanary\AiObservatory\Adapters\ClassificationEventAdapter;
 use Kanary\AiObservatory\Adapters\EmbeddingEventAdapter;
 use Kanary\AiObservatory\Adapters\ImageEventAdapter;
 use Kanary\AiObservatory\Adapters\ModelEventAdapter;
 use Kanary\AiObservatory\Adapters\ProviderEventAdapter;
 use Kanary\AiObservatory\Adapters\RerankEventAdapter;
+use Kanary\AiObservatory\Adapters\StepEventAdapter;
 use Kanary\AiObservatory\Adapters\ToolEventAdapter;
 use Kanary\AiObservatory\Adapters\TranscriptionEventAdapter;
 use Kanary\AiObservatory\Adapters\VectorStoreEventAdapter;
@@ -53,9 +55,10 @@ class AiObservatoryServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(AiSdkEventAdapterRegistry::class, fn ($app) => new AiSdkEventAdapterRegistry(
-            $app,
+            static fn () => app(),
             [
                 ModelEventAdapter::class,
+                StepEventAdapter::class,
                 AgentEventAdapter::class,
                 ProviderEventAdapter::class,
                 ToolEventAdapter::class,
@@ -65,10 +68,12 @@ class AiObservatoryServiceProvider extends ServiceProvider
                 TranscriptionEventAdapter::class,
                 RerankEventAdapter::class,
                 VectorStoreEventAdapter::class,
+                ClassificationEventAdapter::class,
             ],
         ));
 
         $this->app->scoped(TraceContext::class);
+        $this->app->scoped(StepEventAdapter::class);
         $this->app->singleton(Authorization::class);
         $this->app->singleton(CostCalculator::class, ConfigCostCalculator::class);
         $this->app->singleton(Sampler::class, ConfigSampler::class);
@@ -124,6 +129,10 @@ class AiObservatoryServiceProvider extends ServiceProvider
 
                 if ($app->resolved(SamplingRecorder::class)) {
                     $app->make(SamplingRecorder::class)->reset();
+                }
+
+                if ($app->resolved(StepEventAdapter::class)) {
+                    $app->make(StepEventAdapter::class)->reset();
                 }
             });
         }

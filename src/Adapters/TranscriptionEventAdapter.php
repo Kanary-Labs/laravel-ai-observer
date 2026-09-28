@@ -2,7 +2,7 @@
 
 namespace Kanary\AiObservatory\Adapters;
 
-use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiV010Data;
+use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiData;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
 use Kanary\AiObservatory\Data\TraceFinished;
@@ -15,7 +15,7 @@ use Laravel\Ai\Events\TranscriptionGenerated;
 
 class TranscriptionEventAdapter implements AiSdkEventAdapter
 {
-    use MapsLaravelAiV010Data;
+    use MapsLaravelAiData;
 
     public function supports(object $event): bool
     {
@@ -67,6 +67,7 @@ class TranscriptionEventAdapter implements AiSdkEventAdapter
                     attributes: [
                         'provider' => $event->provider->name(),
                         'model' => $event->model,
+                        ...array_intersect_key($event->response->usage->toArray(), ['audio_seconds' => true]),
                     ],
                 ),
                 new TraceFinished($event->invocationId, $now, TraceStatus::Successful),

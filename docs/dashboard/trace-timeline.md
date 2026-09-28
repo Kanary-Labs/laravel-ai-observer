@@ -29,7 +29,7 @@ Select a span to inspect:
 - Error type, message, and optional stack.
 
 The waterfall is useful for streamed and tool operations with real start and
-end events. Non-stream model spans reconstructed at agent completion are marked
+end events, including all SDK 1.x model steps. SDK 0.10 non-stream model spans reconstructed at agent completion are marked
 in metadata and may have zero duration.
 
 Failed and cancelled spans remain visible alongside successful operations so

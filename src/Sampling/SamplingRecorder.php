@@ -165,7 +165,7 @@ final class SamplingRecorder implements Recorder
 
     private function currentTraceId(): ?string
     {
-        return $this->activeTraces[array_key_last($this->activeTraces)] ?? null;
+        return $this->activeTraces === [] ? null : $this->activeTraces[array_key_last($this->activeTraces)];
     }
 
     private function finish(string $traceId): void

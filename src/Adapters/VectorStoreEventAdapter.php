@@ -3,7 +3,7 @@
 namespace Kanary\AiObservatory\Adapters;
 
 use DateInterval;
-use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiV010Data;
+use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiData;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
 use Kanary\AiObservatory\Data\TraceFinished;
@@ -25,7 +25,7 @@ use Laravel\Ai\Events\StoringFile;
 
 class VectorStoreEventAdapter implements AiSdkEventAdapter
 {
-    use MapsLaravelAiV010Data;
+    use MapsLaravelAiData;
 
     public function supports(object $event): bool
     {

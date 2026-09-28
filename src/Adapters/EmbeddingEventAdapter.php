@@ -2,7 +2,7 @@
 
 namespace Kanary\AiObservatory\Adapters;
 
-use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiV010Data;
+use Kanary\AiObservatory\Adapters\Concerns\MapsLaravelAiData;
 use Kanary\AiObservatory\Data\SpanFinished;
 use Kanary\AiObservatory\Data\SpanStarted;
 use Kanary\AiObservatory\Data\TokenUsage;
@@ -16,7 +16,7 @@ use Laravel\Ai\Events\GeneratingEmbeddings;
 
 class EmbeddingEventAdapter implements AiSdkEventAdapter
 {
-    use MapsLaravelAiV010Data;
+    use MapsLaravelAiData;
 
     public function supports(object $event): bool
     {
@@ -53,6 +53,11 @@ class EmbeddingEventAdapter implements AiSdkEventAdapter
         }
 
         if ($event instanceof EmbeddingsGenerated) {
+            $response = get_object_vars($event->response);
+            $inputTokens = isset($response['usage'])
+                ? $response['usage']->inputTokens
+                : $response['tokens'];
+
             return [
                 new SpanFinished(
                     $event->invocationId,
@@ -64,8 +69,8 @@ class EmbeddingEventAdapter implements AiSdkEventAdapter
                         'vectors_recorded' => false,
                     ],
                     new TokenUsage(
-                        input: $event->response->tokens,
-                        total: $event->response->tokens,
+                        input: $inputTokens,
+                        total: $inputTokens,
                         outputApplicable: false,
                     ),
                     attributes: [

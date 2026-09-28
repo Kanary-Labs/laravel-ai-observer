@@ -2,6 +2,7 @@
 
 namespace Kanary\AiObservatory\Adapters;
 
+use Closure;
 use Illuminate\Contracts\Container\Container;
 use InvalidArgumentException;
 
@@ -15,9 +16,10 @@ class AiSdkEventAdapterRegistry
 
     /**
      * @param  list<class-string<AiSdkEventAdapter>>  $adapterClasses
+     * @param  Container|Closure(): Container  $container
      */
     public function __construct(
-        private readonly Container $container,
+        private readonly Container|Closure $container,
         array $adapterClasses = [],
     ) {
         $this->adapterClasses = $adapterClasses;
@@ -42,12 +44,14 @@ class AiSdkEventAdapterRegistry
     {
         $adapted = [];
         $eventClass = $event::class;
+        // Resolve scoped adapters from the active application, not an Octane worker's boot container.
+        $container = $this->container instanceof Closure ? ($this->container)() : $this->container;
 
         if (isset($this->matches[$eventClass])) {
             foreach ($this->matches[$eventClass] as $adapterClass) {
                 array_push(
                     $adapted,
-                    ...$this->container->make($adapterClass)->adapt($event),
+                    ...$container->make($adapterClass)->adapt($event),
                 );
             }
 
@@ -57,7 +61,7 @@ class AiSdkEventAdapterRegistry
         $this->matches[$eventClass] = [];
 
         foreach ($this->adapterClasses as $adapterClass) {
-            $adapter = $this->container->make($adapterClass);
+            $adapter = $container->make($adapterClass);
 
             if ($adapter->supports($event)) {
                 $this->matches[$eventClass][] = $adapterClass;

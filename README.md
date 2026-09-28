@@ -14,7 +14,7 @@ compatibility isolated behind source-verified adapters.
 
 - PHP 8.3 or newer
 - Laravel 12 or 13
-- `laravel/ai` 0.10.x
+- `laravel/ai` ^0.10.1 or ^1.0
 - MySQL 8+, PostgreSQL 14+, or SQLite
 
 ## Versioning and stability
@@ -24,8 +24,8 @@ Artisan commands, and stored trace schema are covered by the `1.x` backwards
 compatibility commitment. Breaking changes to those surfaces require a new
 major release.
 
-The Laravel AI SDK remains pre-1.0. Adapter internals may change as the SDK
-evolves, but each supported SDK range is source verified and contract tested.
+Laravel AI SDK 1.x and the legacy 0.10.x range have separate model-event
+adapters. Supported release baselines are source verified and contract tested.
 Untested or unsupported SDK versions are reported explicitly by
 `ai-observatory:status`.
 
@@ -190,8 +190,9 @@ long-lived workers do not leak correlation data.
 ## Streaming
 
 Completed streams record request start, first-token, and response-completion
-timestamps plus time to first token. Stream text is buffered into the model
-span; individual token records are not created.
+timestamps plus time to first token. SDK 1.x records individual model steps and
+keeps aggregate stream timing on the agent span; SDK 0.10 records an aggregate
+stream model span. Individual token records are not created.
 
 When a client disconnects before the Laravel AI SDK emits `AgentStreamed`, the
 running trace remains incomplete. Recover stale operations with:
@@ -278,9 +279,16 @@ transactions. Foreign keys restrict accidental parent deletion.
 | Laravel AI SDK | Status                              | Adapter                          |
 | -------------- | ----------------------------------- | -------------------------------- |
 | 0.10.1         | Source verified and contract tested | Laravel AI SDK v0.10 adapter set |
+| 0.10.2, 0.10.3 | Contract tested                     | Laravel AI SDK v0.10 adapter set |
+| 1.0.0          | Source verified and contract tested | Laravel AI SDK v1 adapter set    |
 
 See the
-[verified SDK event inventory](docs/reference/sdk-events-v0.10.1.md).
+[SDK 1.0 event inventory](docs/reference/sdk-events-v1.0.0.md) and the
+[legacy SDK event inventory](docs/reference/sdk-events-v0.10.1.md).
+
+SDK 1.x support is included in the upcoming Observatory 1.1 release. It adds
+live model-step timing, terminal agent/tool failures, classification traces,
+and the SDK's new usage objects. No schema migration is needed from 1.0.1.
 
 An SDK version outside the tested range is reported as untested or unsupported
 by `ai-observatory:status`; it is never silently presented as compatible.
@@ -303,7 +311,7 @@ Documentation inspired by [Spatie](https://spatie.be/docs).
 
 ## Current limitations
 
-- SDK compatibility is verified only for `laravel/ai` 0.10.1.
+- SDK versions beyond the table above are not claimed as tested.
 - Provider failover is recorded only to the extent exposed by official SDK
   events.
 - Laravel AI SDK 0.10.1 has no terminal agent- or tool-failure event. Failed
