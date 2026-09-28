@@ -1,7 +1,7 @@
-# AI Observatory 1.1.0 — upcoming
+# AI Observatory 1.1.0
 
 This release adds Laravel AI SDK 1.0 compatibility while keeping SDK 0.10
-applications supported. It has not been tagged or published yet.
+applications supported.
 
 ## What's new
 
